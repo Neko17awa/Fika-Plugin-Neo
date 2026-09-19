@@ -45,13 +45,14 @@ jobs:
 
       - name: Stage plugin
         run: |
-          mkdir -p dist/BepInEx/plugins/Fika
-          cp Fika.Core/bin/Release/netstandard2.1/Fika.Core.dll dist/BepInEx/plugins/Fika/
-          cp Licenses/* dist/BepInEx/plugins/Fika/
+          mkdir -p package/BepInEx/plugins/Fika
+          cp Fika.Core/bin/Release/netstandard2.1/Fika.Core.dll package/BepInEx/plugins/Fika/
+          cp Licenses/* package/BepInEx/plugins/Fika/
+          find package -type f
 
       - name: Upload plugin
         uses: actions/upload-artifact@v4
         with:
-          name: fika-neo-plugin
-          path: dist/BepInEx/plugins/Fika/
+          name: Fika-Neo-Plugin
+          path: package
           if-no-files-found: error
