@@ -39,6 +39,7 @@ public static class FikaHideoutExt
             FikaBackendUtils.HideoutVisitInProgressId = hideoutData.OwnerAccountId;
         }
 
+        FikaHideoutCoop.OnHideoutSelected(hideoutData);
         app.HideoutControllerAccess.HideoutSelectedHandler(hideoutData).HandleExceptions();
     }
 

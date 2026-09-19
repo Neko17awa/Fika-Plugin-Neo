@@ -1,12 +1,12 @@
 using System.Reflection;
 using EFT;
-using Fika.Core.Main.Utils;
+using Fika.Core.Main.Components;
 using SPT.Reflection.Patching;
 
 namespace Fika.Core.Main.Patches.Hideout;
 
 /// <summary>
-/// 回到自己的藏身处时清掉参观目标，避免一直按客人去连上一次的 Host。
+/// SetGuest(true) 锁客人；SetGuest(false) 只有在不是参观时才确认为自己的藏身处。
 /// </summary>
 public class HideoutPlayerOwner_SetGuest_Patch : ModulePatch
 {
@@ -16,11 +16,8 @@ public class HideoutPlayerOwner_SetGuest_Patch : ModulePatch
     }
 
     [PatchPostfix]
-    public static void Postfix(bool isGuest)
+    public static void Postfix(bool isGuest, string ownerAccountId)
     {
-        if (!isGuest)
-        {
-            FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
-        }
+        FikaHideoutCoop.OnSetGuest(isGuest, ownerAccountId);
     }
 }

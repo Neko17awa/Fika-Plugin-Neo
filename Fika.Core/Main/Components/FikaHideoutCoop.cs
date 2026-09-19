@@ -40,6 +40,85 @@ public static class FikaHideoutCoop
     private static float _nextJoinAttempt = -999f;
     private static float _nextHostHeartbeat = -999f;
     private static bool _subscribed;
+    private static bool _visitLocked;
+    private static bool _ownConfirmed;
+    private static string _lockedOwnerId = "";
+
+    /// <summary>
+    /// HideoutSelectedHandler 一进来就定角色：客人藏身处绝不开 Host。
+    /// </summary>
+    public static void OnHideoutSelected(HideoutData hideoutData)
+    {
+        if (hideoutData == null)
+        {
+            return;
+        }
+
+        if (hideoutData.IsGuest)
+        {
+            _visitLocked = true;
+            _ownConfirmed = false;
+            if (string.IsNullOrEmpty(FikaBackendUtils.HideoutVisitInProgressId)
+                && !string.IsNullOrEmpty(hideoutData.OwnerAccountId))
+            {
+                FikaBackendUtils.HideoutVisitInProgressId = hideoutData.OwnerAccountId;
+            }
+
+            _lockedOwnerId = FirstNonEmpty(
+                FikaBackendUtils.HideoutVisitInProgressId,
+                hideoutData.OwnerAccountId);
+            _logger.LogInfo($"Hideout selected as guest owner={_lockedOwnerId}");
+            return;
+        }
+
+        _visitLocked = false;
+        _ownConfirmed = true;
+        _lockedOwnerId = "";
+        FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
+        _logger.LogInfo("Hideout selected as owner");
+    }
+
+    public static void OnSetGuest(bool isGuest, string ownerAccountId)
+    {
+        if (isGuest)
+        {
+            _visitLocked = true;
+            _ownConfirmed = false;
+            if (!string.IsNullOrEmpty(ownerAccountId)
+                && string.IsNullOrEmpty(FikaBackendUtils.HideoutVisitInProgressId))
+            {
+                FikaBackendUtils.HideoutVisitInProgressId = ownerAccountId;
+            }
+
+            _lockedOwnerId = FirstNonEmpty(
+                FikaBackendUtils.HideoutVisitInProgressId,
+                ownerAccountId,
+                _lockedOwnerId);
+            _logger.LogInfo($"SetGuest(true) owner={_lockedOwnerId}");
+            return;
+        }
+
+        if (_visitLocked || !string.IsNullOrEmpty(FikaBackendUtils.HideoutVisitInProgressId))
+        {
+            _logger.LogWarning("SetGuest(false) ignored while visiting another hideout");
+            return;
+        }
+
+        _ownConfirmed = true;
+        _visitLocked = false;
+        _lockedOwnerId = "";
+        FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
+        _logger.LogInfo("SetGuest(false) own hideout confirmed");
+    }
+
+    public static void OnHideoutUnloaded()
+    {
+        _visitLocked = false;
+        _ownConfirmed = false;
+        _lockedOwnerId = "";
+        FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
+        Stop();
+    }
 
     public static void Tick(bool inHideout, bool isGuest, string ownerAccountId)
     {
@@ -50,7 +129,6 @@ public static class FikaHideoutCoop
 
         if (!inHideout)
         {
-            FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
             Stop();
             return;
         }
@@ -107,8 +185,7 @@ public static class FikaHideoutCoop
     }
 
     /// <summary>
-    /// 进场加载时 BetterAudio.IsInHideout 会先于 SetGuest，不能默认当主人。
-    /// 参观目标用 HideoutVisitInProgressId（资料页 AccountId），不要用快照 Aid。
+    /// 角色只认 HideoutSelectedHandler / SetGuest。IsGuest 默认 false，绝不能据此开 Host。
     /// </summary>
     private static bool TryResolveRole(bool isGuestHint, string ownerAccountIdHint, out bool isGuest, out string ownerAccountId)
     {
@@ -118,24 +195,21 @@ public static class FikaHideoutCoop
         var visitId = FikaBackendUtils.HideoutVisitInProgressId;
         var hideoutOwner = HideoutPlayerOwner();
 
-        if (!string.IsNullOrEmpty(visitId))
+        if (_visitLocked || !string.IsNullOrEmpty(visitId))
         {
             isGuest = true;
-            ownerAccountId = visitId;
-            return true;
+            ownerAccountId = FirstNonEmpty(
+                visitId,
+                _lockedOwnerId,
+                hideoutOwner != null ? hideoutOwner.HideoutOwnerAccountId : "",
+                isGuestHint ? ownerAccountIdHint : "");
+            return !string.IsNullOrEmpty(ownerAccountId);
         }
 
         if (hideoutOwner != null && hideoutOwner.IsGuest)
         {
             isGuest = true;
             ownerAccountId = FirstNonEmpty(ownerAccountIdHint, hideoutOwner.HideoutOwnerAccountId);
-            return !string.IsNullOrEmpty(ownerAccountId);
-        }
-
-        if (hideoutOwner != null && !hideoutOwner.IsGuest)
-        {
-            isGuest = false;
-            ownerAccountId = LocalAccountId();
             return !string.IsNullOrEmpty(ownerAccountId);
         }
 
@@ -146,8 +220,14 @@ public static class FikaHideoutCoop
             return true;
         }
 
-        // 还在加载 HideoutPlayer，角色未定，绝不开 Host。
-        return false;
+        if (!_ownConfirmed)
+        {
+            return false;
+        }
+
+        isGuest = false;
+        ownerAccountId = LocalAccountId();
+        return !string.IsNullOrEmpty(ownerAccountId);
     }
 
     private static HideoutPlayerOwner HideoutPlayerOwner()
@@ -272,9 +352,25 @@ public static class FikaHideoutCoop
 
     private static async Task StartHostAsync(string ownerAccountId)
     {
-        if (!string.IsNullOrEmpty(FikaBackendUtils.HideoutVisitInProgressId))
+        if (_visitLocked || !string.IsNullOrEmpty(FikaBackendUtils.HideoutVisitInProgressId))
         {
-            _logger.LogWarning("StartHost ignored: hideout visit in progress");
+            _logger.LogWarning("StartHost ignored: visiting another hideout");
+            return;
+        }
+
+        if (!_ownConfirmed)
+        {
+            _logger.LogWarning("StartHost ignored: own hideout not confirmed");
+            return;
+        }
+
+        if (Singleton<FikaServer>.Instantiated)
+        {
+            _logger.LogWarning("StartHost ignored: FikaServer already running");
+            _ownerAccountId = ownerAccountId;
+            _isGuest = false;
+            IsActive = true;
+            RegisterHost();
             return;
         }
 
@@ -337,6 +433,18 @@ public static class FikaHideoutCoop
         try
         {
             _logger.LogInfo($"Hideout client joining owner {ownerAccountId}");
+            if (Singleton<FikaServer>.Instantiated)
+            {
+                _logger.LogWarning("Destroying leftover FikaServer before hideout join");
+                try
+                {
+                    NetManagerUtils.DestroyNetManager(true);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"Destroy leftover FikaServer failed: {ex.Message}");
+                }
+            }
             FikaHideoutHostResponse host;
             try
             {
