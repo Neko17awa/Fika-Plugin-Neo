@@ -27,6 +27,14 @@ public static class FikaHideoutCoop
 {
     public static bool IsActive { get; private set; }
 
+    public static bool IsHosting => IsActive && !_isGuest;
+
+    public static bool TryGetHostPublish(out FikaHideoutHostRequest request)
+    {
+        request = _lastHostRequest;
+        return IsHosting && request != null && !string.IsNullOrEmpty(request.AccountId);
+    }
+
     private static readonly ManualLogSource _logger = Logger.CreateLogSource("Fika.HideoutCoop");
     private const float JoinRetrySeconds = 2f;
     private const float HostHeartbeatSeconds = 15f;
@@ -43,6 +51,7 @@ public static class FikaHideoutCoop
     private static bool _visitLocked;
     private static bool _ownConfirmed;
     private static string _lockedOwnerId = "";
+    private static FikaHideoutHostRequest _lastHostRequest;
 
     /// <summary>
     /// HideoutSelectedHandler 一进来就定角色：客人藏身处绝不开 Host。
@@ -152,11 +161,6 @@ public static class FikaHideoutCoop
         if (!IsActive)
         {
             if (RaidNetManagerRunning())
-            {
-                return;
-            }
-
-            if (LocalHideoutPlayer() == null)
             {
                 return;
             }
@@ -335,6 +339,7 @@ public static class FikaHideoutCoop
         _isGuest = false;
         _ownerAccountId = "";
         _characterSent = false;
+        _lastHostRequest = null;
         _nextJoinAttempt = -999f;
         _nextHostHeartbeat = -999f;
         _logger.LogInfo("Hideout coop stopped");
@@ -453,7 +458,12 @@ public static class FikaHideoutCoop
             catch (Exception ex)
             {
                 _logger.LogWarning($"GetHideoutHost({ownerAccountId}) failed: {ex.Message}");
-                return;
+                host = null;
+            }
+
+            if (host == null || !host.Ok)
+            {
+                host = FikaHideoutExt.ConsumeRemoteHost();
             }
 
             if (host == null || !host.Ok)
@@ -461,6 +471,8 @@ public static class FikaHideoutCoop
                 _logger.LogInfo($"Hideout host for {ownerAccountId} is not published yet");
                 return;
             }
+
+            _logger.LogInfo($"Hideout host found for {ownerAccountId} port={host.Port}");
 
             using var pingingClient = await NetManagerUtils.CreatePingingClient();
             if (!pingingClient.InitFromHost(host.ToGetHostResponse()))
@@ -635,6 +647,7 @@ public static class FikaHideoutCoop
             var request = new FikaHideoutHostRequest
             {
                 AccountId = _ownerAccountId,
+                Aliases = HostAliasIds(_ownerAccountId),
                 Ips = CollectHostIps(),
                 Port = FikaPlugin.Instance.Settings.UDPPort.Value,
                 ServerGuid = FikaBackendUtils.ServerGuid.ToString(),
@@ -642,11 +655,45 @@ public static class FikaHideoutCoop
                 UseFikaNatPunchServer = FikaPlugin.Instance.Settings.UseFikaNATPunchServer.Value
             };
             FikaRequestHandler.SetHideoutHost(request);
+            _lastHostRequest = request;
             _nextHostHeartbeat = Time.unscaledTime + HostHeartbeatSeconds;
+            _logger.LogInfo($"SetHideoutHost account={_ownerAccountId} port={request.Port}");
         }
         catch (Exception ex)
         {
             _logger.LogWarning($"SetHideoutHost failed: {ex.Message}");
+        }
+    }
+
+    private static string[] HostAliasIds(string ownerAccountId)
+    {
+        var ids = new List<string>();
+        AddUnique(ids, ownerAccountId);
+        AddUnique(ids, LocalAccountId());
+        AddUnique(ids, LocalProfileId());
+        return [.. ids];
+    }
+
+    private static void AddUnique(List<string> ids, string value)
+    {
+        if (!string.IsNullOrEmpty(value) && !ids.Contains(value))
+        {
+            ids.Add(value);
+        }
+    }
+
+    private static string LocalProfileId()
+    {
+        try
+        {
+            var app = Singleton<ClientApplication<IEftSession>>.Instantiated
+                ? Singleton<ClientApplication<IEftSession>>.Instance as TarkovApplication
+                : null;
+            return app?.Session?.Profile?.Id ?? "";
+        }
+        catch
+        {
+            return "";
         }
     }
 

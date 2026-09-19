@@ -129,4 +129,32 @@ public static class FikaHideoutExt
     /// 当前是否已在 HideoutGame 内接上 Fika 联机。
     /// </summary>
     public static bool IsHideoutCoopActive => FikaHideoutCoop.IsActive;
+
+    /// <summary>
+    /// 本机正在当藏身处 Host 时，给 HideoutEX 上报到占用表。
+    /// </summary>
+    public static bool TryGetHostPublish(out FikaHideoutHostRequest request)
+    {
+        return FikaHideoutCoop.TryGetHostPublish(out request);
+    }
+
+    /// <summary>
+    /// HideoutEX 从占用表拿到跨服 Host 地址后交给 Join。
+    /// </summary>
+    public static void OfferRemoteHost(FikaHideoutHostResponse host)
+    {
+        if (host != null && host.Ok)
+        {
+            _offeredHost = host;
+        }
+    }
+
+    public static FikaHideoutHostResponse ConsumeRemoteHost()
+    {
+        var host = _offeredHost;
+        _offeredHost = null;
+        return host;
+    }
+
+    private static FikaHideoutHostResponse _offeredHost;
 }

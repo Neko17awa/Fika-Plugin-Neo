@@ -7,6 +7,9 @@ public class FikaHideoutHostRequest
     [JsonProperty("accountId")]
     public string AccountId;
 
+    [JsonProperty("aliases")]
+    public string[] Aliases;
+
     [JsonProperty("ips")]
     public string[] Ips;
 
