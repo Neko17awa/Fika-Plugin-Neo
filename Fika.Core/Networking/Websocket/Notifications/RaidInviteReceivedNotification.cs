@@ -17,7 +17,7 @@ public class RaidInviteReceivedNotification : Notification
         get
         {
             var leaderText = FikaUIGlobals.ColorizeText(FikaUIGlobals.EColor.GREEN, LeaderNickname ?? string.Empty);
-            return $"{leaderText} invited you to join raid at {(Location ?? string.Empty).Localized()}";
+            return $"{leaderText} invited you to join raid at {Location ?? string.Empty}";
         }
     }
 
@@ -49,7 +49,7 @@ public class RaidInviteReceivedNotification : Notification
     public int Side;
 
     [JsonProperty("time")]
-    public int Time;
+    public new int Time;
 
     [JsonProperty("expiresAtUnix")]
     public long ExpiresAtUnix;
