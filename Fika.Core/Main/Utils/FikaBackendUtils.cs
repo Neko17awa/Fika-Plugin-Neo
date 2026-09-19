@@ -101,6 +101,9 @@ public static class FikaBackendUtils
     /// <summary>NekoPT 已接受、待进图的战局邀请。Fika 自身不消费。</summary>
     public static RaidInviteReceivedNotification PendingAcceptedRaidInvite { get; set; }
 
+    /// <summary>NekoPT 进行中的藏身处参观目标 accountId。Fika 自身不读写。</summary>
+    public static string HideoutVisitInProgressId { get; set; }
+
     internal static bool RequestFikaWorld;
     internal static Vector3 ReconnectPosition;
     internal static Vector2 ReconnectRotation;
@@ -132,6 +135,7 @@ public static class FikaBackendUtils
         InviteInProgressId = string.Empty;
         PartyInviteInProgressId = string.Empty;
         PendingAcceptedRaidInvite = null;
+        HideoutVisitInProgressId = string.Empty;
         DissonanceComms_Start_Patch.IsReady = false;
     }
 
