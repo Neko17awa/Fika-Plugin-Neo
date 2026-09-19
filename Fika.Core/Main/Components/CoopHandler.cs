@@ -308,6 +308,7 @@ public class CoopHandler : MonoBehaviour
         {
             if (player.ProfileId == spawnObject.Profile.ProfileId)
             {
+                _queuedPlayers.Remove(spawnObject.NetId);
                 return;
             }
         }
@@ -316,6 +317,7 @@ public class CoopHandler : MonoBehaviour
         if (allPrefabPaths.Length == 0)
         {
             _logger.LogError($"SpawnPlayer::{spawnObject.Profile.Info.Nickname}::PrefabPaths are empty!");
+            _queuedPlayers.Remove(spawnObject.NetId);
             return;
         }
 

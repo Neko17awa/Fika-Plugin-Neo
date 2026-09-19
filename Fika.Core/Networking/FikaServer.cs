@@ -540,6 +540,31 @@ public sealed partial class FikaServer : MonoBehaviour, INetEventListener, INatP
         return netId;
     }
 
+    /// <summary>
+    /// HideoutGame already spawned a vanilla player as id 1. Host ObservedPlayer must not reuse that id,
+    /// or the guest creates the host body on top of their own HideoutPlayer and never sees the owner.
+    /// </summary>
+    public void AssignHideoutHostNetId()
+    {
+        if (!FikaBackendUtils.IsHideoutSession)
+        {
+            return;
+        }
+
+        if (NetId != 1)
+        {
+            return;
+        }
+
+        NetId = PopNetId();
+        if (_genericPacket != null)
+        {
+            _genericPacket.NetId = NetId;
+        }
+
+        _logger.LogInfo($"Hideout host NetId rebound to {NetId}");
+    }
+
     public void SetupGameVariables(FikaPlayer fikaPlayer)
     {
         _hostPlayer = fikaPlayer;

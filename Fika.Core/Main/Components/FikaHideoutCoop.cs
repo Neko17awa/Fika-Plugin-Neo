@@ -10,11 +10,14 @@ using Fika.Core.Main.PacketHandlers;
 using Fika.Core.Main.Utils;
 using Fika.Core.Modding;
 using Fika.Core.Modding.Events;
+using LiteNetLib;
 using Fika.Core.Networking;
 using Fika.Core.Networking.Http;
 using Fika.Core.Networking.Models.Hideout;
+using Fika.Core.Networking.Packets;
 using Fika.Core.Networking.Packets.Generic;
 using Fika.Core.Networking.Packets.Generic.SubPackets;
+using Fika.Core.Networking.Packets.World;
 using static Fika.Core.Networking.NetworkUtils;
 
 namespace Fika.Core.Main.Components;
@@ -38,6 +41,7 @@ public static class FikaHideoutCoop
     private static readonly ManualLogSource _logger = Logger.CreateLogSource("Fika.HideoutCoop");
     private const float JoinRetrySeconds = 2f;
     private const float HostHeartbeatSeconds = 15f;
+    private const float HostCharacterRetrySeconds = 2f;
 
     private static bool _busy;
     private static bool _stopRequested;
@@ -52,6 +56,8 @@ public static class FikaHideoutCoop
     private static bool _ownConfirmed;
     private static string _lockedOwnerId = "";
     private static FikaHideoutHostRequest _lastHostRequest;
+    private static int _lastObservedCount;
+    private static float _nextHostCharacterSend = -999f;
 
     /// <summary>
     /// HideoutSelectedHandler 一进来就定角色：客人藏身处绝不开 Host。
@@ -182,9 +188,17 @@ public static class FikaHideoutCoop
         }
 
         EnsureLocalSync();
-        if (!_isGuest && Time.unscaledTime >= _nextHostHeartbeat)
+        if (_isGuest)
         {
-            RegisterHost();
+            MaybeRequestHostCharacter();
+        }
+        else
+        {
+            MaybeResendHostCharacter();
+            if (Time.unscaledTime >= _nextHostHeartbeat)
+            {
+                RegisterHost();
+            }
         }
     }
 
@@ -340,6 +354,8 @@ public static class FikaHideoutCoop
         _ownerAccountId = "";
         _characterSent = false;
         _lastHostRequest = null;
+        _lastObservedCount = 0;
+        _nextHostCharacterSend = -999f;
         _nextJoinAttempt = -999f;
         _nextHostHeartbeat = -999f;
         _logger.LogInfo("Hideout coop stopped");
@@ -375,6 +391,8 @@ public static class FikaHideoutCoop
             _ownerAccountId = ownerAccountId;
             _isGuest = false;
             IsActive = true;
+            BindHideoutHostNetId();
+            SubscribePeerConnected();
             RegisterHost();
             return;
         }
@@ -390,6 +408,7 @@ public static class FikaHideoutCoop
 
             NetManagerUtils.CreateNetManager(true);
             await NetManagerUtils.InitNetManager(true);
+            BindHideoutHostNetId();
             NetManagerUtils.DisableLoadingScreenUI();
 
             var coop = Singleton<IFikaNetworkManager>.Instance.CoopHandler;
@@ -566,8 +585,9 @@ public static class FikaHideoutCoop
             return;
         }
 
-        if (_sender == null)
+        if (_sender == null || _sender.NetId != (ushort)manager.NetId)
         {
+            DestroySender();
             _sender = HideoutPacketSender.Create(player, (ushort)manager.NetId, manager);
         }
 
@@ -610,6 +630,68 @@ public static class FikaHideoutCoop
         SendLocalCharacter(evt.Peer);
     }
 
+    public static void SendLocalCharacterToPeer(NetPeer peer)
+    {
+        SendLocalCharacter(peer);
+    }
+
+    private static void BindHideoutHostNetId()
+    {
+        if (!Singleton<FikaServer>.Instantiated)
+        {
+            return;
+        }
+
+        Singleton<FikaServer>.Instance.AssignHideoutHostNetId();
+        DestroySender();
+        _characterSent = false;
+    }
+
+    private static void MaybeResendHostCharacter()
+    {
+        if (!Singleton<FikaServer>.Instantiated)
+        {
+            return;
+        }
+
+        var peers = Singleton<FikaServer>.Instance.NetServer?.ConnectedPeersCount ?? 0;
+        if (peers <= 0)
+        {
+            return;
+        }
+
+        var observed = Singleton<IFikaNetworkManager>.Instance?.ObservedPlayers?.Count ?? 0;
+        if (observed > _lastObservedCount || Time.unscaledTime >= _nextHostCharacterSend)
+        {
+            _lastObservedCount = observed;
+            _nextHostCharacterSend = Time.unscaledTime + HostCharacterRetrySeconds;
+            SendLocalCharacter(null);
+        }
+    }
+
+    private static void MaybeRequestHostCharacter()
+    {
+        var manager = Singleton<IFikaNetworkManager>.Instance;
+        if (manager?.ObservedPlayers != null && manager.ObservedPlayers.Count > 0)
+        {
+            return;
+        }
+
+        if (!Singleton<FikaClient>.Instantiated || Time.unscaledTime < _nextHostCharacterSend)
+        {
+            return;
+        }
+
+        _nextHostCharacterSend = Time.unscaledTime + HostCharacterRetrySeconds;
+        RequestPacket request = new()
+        {
+            Type = ERequestSubPacketType.CharacterSync,
+            RequestSubPacket = new RequestSubPackets.RequestCharactersPacket([1])
+        };
+        Singleton<FikaClient>.Instance.SendData(ref request, DeliveryMethod.ReliableOrdered);
+        _logger.LogInfo("Requested hideout host character");
+    }
+
     private static void SendLocalCharacter(NetPeer peer)
     {
         var player = LocalHideoutPlayer();
@@ -650,10 +732,12 @@ public static class FikaHideoutCoop
         if (peer != null && Singleton<FikaServer>.Instantiated)
         {
             Singleton<FikaServer>.Instance.SendGenericPacketToPeer(EGenericSubPacketType.SendCharacter, packet, peer);
+            _logger.LogInfo($"Hideout character sent to peer netId={manager.NetId} pos={player.Transform.position}");
             return;
         }
 
         manager.SendGenericPacket(EGenericSubPacketType.SendCharacter, packet, true);
+        _logger.LogInfo($"Hideout character broadcast netId={manager.NetId} pos={player.Transform.position}");
     }
 
     private static void RegisterHost()

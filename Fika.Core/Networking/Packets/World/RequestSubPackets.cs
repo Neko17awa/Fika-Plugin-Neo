@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Comfort.Common;
 using EFT.Interactive;
+using Fika.Core.Main.Components;
 using Fika.Core.Main.GameMode;
 using Fika.Core.Main.Players;
 using Fika.Core.Main.Utils;
@@ -425,6 +426,10 @@ public static class RequestSubPackets
                         }
 
                         server.SendGenericPacketToPeer(EGenericSubPacketType.SendCharacter, packet, peer);
+                    }
+                    else if (FikaBackendUtils.IsHideoutSession)
+                    {
+                        FikaHideoutCoop.SendLocalCharacterToPeer(peer);
                     }
                 }
             }
