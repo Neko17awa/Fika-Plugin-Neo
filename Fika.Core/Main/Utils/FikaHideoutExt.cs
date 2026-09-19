@@ -149,11 +149,14 @@ public static class FikaHideoutExt
         }
     }
 
+    public static FikaHideoutHostResponse PeekRemoteHost()
+    {
+        return _offeredHost;
+    }
+
     public static FikaHideoutHostResponse ConsumeRemoteHost()
     {
-        var host = _offeredHost;
-        _offeredHost = null;
-        return host;
+        return _offeredHost;
     }
 
     private static FikaHideoutHostResponse _offeredHost;

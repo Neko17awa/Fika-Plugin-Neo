@@ -450,23 +450,26 @@ public static class FikaHideoutCoop
                     _logger.LogWarning($"Destroy leftover FikaServer failed: {ex.Message}");
                 }
             }
-            FikaHideoutHostResponse host;
-            try
+            FikaHideoutHostResponse host = FikaHideoutExt.PeekRemoteHost();
+            if (HostUsable(host))
             {
-                host = FikaRequestHandler.GetHideoutHost(new FikaHideoutHostRequest { AccountId = ownerAccountId });
+                _logger.LogInfo($"Using offered hideout host port={host.Port}");
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogWarning($"GetHideoutHost({ownerAccountId}) failed: {ex.Message}");
-                host = null;
+                try
+                {
+                    host = await Task.Run(() =>
+                        FikaRequestHandler.GetHideoutHost(new FikaHideoutHostRequest { AccountId = ownerAccountId }));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"GetHideoutHost({ownerAccountId}) failed: {ex.Message}");
+                    host = null;
+                }
             }
 
-            if (host == null || !host.Ok)
-            {
-                host = FikaHideoutExt.ConsumeRemoteHost();
-            }
-
-            if (host == null || !host.Ok)
+            if (!HostUsable(host))
             {
                 _logger.LogInfo($"Hideout host for {ownerAccountId} is not published yet");
                 return;
@@ -534,6 +537,24 @@ public static class FikaHideoutCoop
                 Stop();
             }
         }
+    }
+
+    private static bool HostUsable(FikaHideoutHostResponse host)
+    {
+        if (host == null || !host.Ok || host.Port == 0 || host.Ips == null || host.Ips.Length == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < host.Ips.Length; i++)
+        {
+            if (!string.IsNullOrEmpty(host.Ips[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void EnsureLocalSync()
@@ -705,7 +726,11 @@ public static class FikaHideoutCoop
             externalIp = FikaPlugin.Instance.WanIP != null ? FikaPlugin.Instance.WanIP.ToString() : "";
         }
 
-        List<string> ipAddresses = [externalIp];
+        List<string> ipAddresses = [];
+        if (ValidateIP(externalIp))
+        {
+            ipAddresses.Add(externalIp);
+        }
         var localIps = FikaPlugin.Instance.LocalIPs;
         if (localIps != null)
         {
