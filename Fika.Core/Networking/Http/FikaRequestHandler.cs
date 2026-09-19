@@ -266,4 +266,28 @@ public static class FikaRequestHandler
     {
         return PostJson<FikaHideoutViewRequest, FikaHideoutViewResponse>("/fika/hideout/view", request);
     }
+
+    /// <summary>
+    /// 登记本机为藏身处 Host。NekoPT 使用；Fika 战局不走这条路径。
+    /// </summary>
+    public static void SetHideoutHost(FikaHideoutHostRequest request)
+    {
+        PutJson("/fika/hideout/host", request);
+    }
+
+    /// <summary>
+    /// 按主人 accountId 查询藏身处 Host 地址。
+    /// </summary>
+    public static FikaHideoutHostResponse GetHideoutHost(FikaHideoutHostRequest request)
+    {
+        return PostJson<FikaHideoutHostRequest, FikaHideoutHostResponse>("/fika/hideout/gethost", request);
+    }
+
+    /// <summary>
+    /// 离开藏身处时撤销 Host 登记。
+    /// </summary>
+    public static void LeaveHideoutHost(FikaHideoutHostRequest request)
+    {
+        PutJson("/fika/hideout/host/leave", request);
+    }
 }

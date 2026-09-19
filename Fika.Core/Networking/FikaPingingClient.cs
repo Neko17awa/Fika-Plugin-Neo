@@ -62,19 +62,24 @@ public class FikaPingingClient : INetEventListener, INatPunchListener, IDisposab
     /// <returns>True if initialization was successful, otherwise false.</returns>
     public bool Init(string serverId)
     {
-        NetClient = new(this)
-        {
-            UnconnectedMessagesEnabled = true,
-            NatPunchEnabled = true,
-            UseNativeSockets = NativeSocket.IsSupported
-        };
-
-        _endPoints = [];
-        _candidates = [];
-        _writer = new();
-
+        PrepareClient();
         GetHostRequest body = new(serverId);
         var result = FikaRequestHandler.GetHost(body);
+        return InitFromHost(result);
+    }
+
+    /// <summary>
+    /// 用已解析的 Host 地址初始化 ping。藏身处联机复用战局同一套打洞/选路。
+    /// </summary>
+    public bool InitFromHost(GetHostResponse result)
+    {
+        PrepareClient();
+        if (result.IPs == null || result.IPs.Length == 0)
+        {
+            _logger.LogError("Host IPs were empty when pinging!");
+            return false;
+        }
+
         FikaBackendUtils.ServerGuid = result.ServerGuid;
         _logger.LogInfo(result.ToString());
 
@@ -127,6 +132,25 @@ public class FikaPingingClient : INetEventListener, INatPunchListener, IDisposab
         }
 
         return true;
+    }
+
+    private void PrepareClient()
+    {
+        if (NetClient != null)
+        {
+            return;
+        }
+
+        NetClient = new(this)
+        {
+            UnconnectedMessagesEnabled = true,
+            NatPunchEnabled = true,
+            UseNativeSockets = NativeSocket.IsSupported
+        };
+
+        _endPoints = [];
+        _candidates = [];
+        _writer = new();
     }
 
     private async Task NatIntroduceTask(IPEndPoint endPoint, string token, CancellationToken ct = default)

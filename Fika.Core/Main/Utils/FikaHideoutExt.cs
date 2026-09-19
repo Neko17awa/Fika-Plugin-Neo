@@ -1,6 +1,7 @@
 using System;
 using Comfort.Common;
 using EFT;
+using Fika.Core.Main.Components;
 using Fika.Core.Networking.Http;
 using Fika.Core.Networking.Models.Hideout;
 using Newtonsoft.Json;
@@ -9,7 +10,8 @@ using Newtonsoft.Json.Linq;
 namespace Fika.Core.Main.Utils;
 
 /// <summary>
-/// 客人藏身处进场挂点。Fika 自身不调用；NekoPT HideoutEX 用本服快照或已构造的 <see cref="HideoutData"/> 进场。
+/// 客人藏身处进场挂点，以及 HideoutGame 内的 Fika 联机入口。
+/// Fika 自身不调用参观 API；NekoPT HideoutEX 用本服快照进场，并在进藏身处后 Tick 联机。
 /// </summary>
 public static class FikaHideoutExt
 {
@@ -92,4 +94,25 @@ public static class FikaHideoutExt
             return false;
         }
     }
+
+    /// <summary>
+    /// HideoutEX 每帧调用。主人在 HideoutGame 里开 Fika Host，客人查询并加入，复用战局状态包。
+    /// </summary>
+    public static void TickHideoutCoop(bool inHideout, bool isGuest, string ownerAccountId)
+    {
+        FikaHideoutCoop.Tick(inHideout, isGuest, ownerAccountId);
+    }
+
+    /// <summary>
+    /// 离开藏身处时拆除 Fika 联机会话。
+    /// </summary>
+    public static void StopHideoutCoop()
+    {
+        FikaHideoutCoop.Stop();
+    }
+
+    /// <summary>
+    /// 当前是否已在 HideoutGame 内接上 Fika 联机。
+    /// </summary>
+    public static bool IsHideoutCoopActive => FikaHideoutCoop.IsActive;
 }
