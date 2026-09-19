@@ -13,6 +13,7 @@ using Fika.Core.Main.Patches.VOIP;
 using Fika.Core.Networking;
 using Fika.Core.Networking.Http;
 using Fika.Core.Networking.Models;
+using Fika.Core.Networking.Websocket.Notifications;
 using HarmonyLib;
 using Newtonsoft.Json;
 
@@ -91,6 +92,15 @@ public static class FikaBackendUtils
     public static BindableList<RaidPlayer> GroupPlayers { get; set; } = [];
     public static FikaCustomRaidSettings CustomRaidSettings { get; set; } = new();
 
+    /// <summary>NekoPT 战局邀请进行中的 id。Fika 自身不读写。</summary>
+    public static string InviteInProgressId { get; set; }
+
+    /// <summary>NekoPT 组队邀请进行中的 id。Fika 自身不读写。</summary>
+    public static string PartyInviteInProgressId { get; set; }
+
+    /// <summary>NekoPT 已接受、待进图的战局邀请。Fika 自身不消费。</summary>
+    public static RaidInviteReceivedNotification PendingAcceptedRaidInvite { get; set; }
+
     internal static bool RequestFikaWorld;
     internal static Vector3 ReconnectPosition;
     internal static Vector2 ReconnectRotation;
@@ -119,6 +129,9 @@ public static class FikaBackendUtils
         ReconnectPosition = Vector3.zero;
         ReconnectRotation = Vector2.zero;
         GroupPlayers?.Clear();
+        InviteInProgressId = string.Empty;
+        PartyInviteInProgressId = string.Empty;
+        PendingAcceptedRaidInvite = null;
         DissonanceComms_Start_Patch.IsReady = false;
     }
 

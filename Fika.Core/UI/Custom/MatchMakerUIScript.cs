@@ -361,6 +361,22 @@ public class MatchMakerUIScript : MonoBehaviour
         }
 
         BackButton.gameObject.SetActive(false);
+        BuildPartyPanel();
+    }
+
+    /// <summary>
+    /// NekoPT Harmony 挂点。Fika-Neo 不绘制组队面板，只放一个隐藏占位物体供 NekoPT 查找或 Prefix 跳过。
+    /// </summary>
+    private void BuildPartyPanel()
+    {
+        if (_fikaMatchMakerUi == null || _fikaMatchMakerUi.transform.Find("FikaPartyPanel") != null)
+        {
+            return;
+        }
+
+        var panel = new GameObject("FikaPartyPanel");
+        panel.transform.SetParent(_fikaMatchMakerUi.transform, false);
+        panel.SetActive(false);
     }
 
     private void ToggleLoading(bool enabled)
