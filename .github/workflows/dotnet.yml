@@ -1,37 +1,57 @@
-name: .NET Test
+name: Build
 
 on:
   workflow_dispatch:
   push:
+    branches: [neo, main]
     paths-ignore:
       - '**/*.md'
   pull_request:
+    branches: [neo, main]
     paths-ignore:
       - '**/*.md'
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
+concurrency:
+  group: plugin-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup dotnet
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          cache: true
+          cache-dependency-path: Fika.Core/packages.lock.json
 
-    - name: Install dependencies
-      run: dotnet restore
+      - name: Restore
+        run: dotnet restore Fika-Plugin.slnx
 
-    - name: Build
-      run: dotnet build --nologo --no-restore --configuration Debug
+      - name: Build
+        run: dotnet build Fika-Plugin.slnx --nologo --no-restore --configuration Release
 
-    - name: Test
-      run: dotnet test --nologo --no-restore --no-build --blame-hang-timeout 1min
-  
+      - name: Test
+        run: dotnet test Fika-Plugin.slnx --nologo --no-restore --no-build --configuration Release --blame-hang-timeout 1min
+
+      - name: Stage plugin
+        run: |
+          mkdir -p dist/BepInEx/plugins/Fika
+          cp Fika.Core/bin/Release/netstandard2.1/Fika.Core.dll dist/BepInEx/plugins/Fika/
+          cp Licenses/* dist/BepInEx/plugins/Fika/
+
+      - name: Upload plugin
+        uses: actions/upload-artifact@v4
+        with:
+          name: fika-neo-plugin
+          path: dist/BepInEx/plugins/Fika/
+          if-no-files-found: error

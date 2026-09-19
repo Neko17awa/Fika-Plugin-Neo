@@ -19,6 +19,9 @@ on:
         required: false
         default: "EFT 0.16.9.40743"
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -55,16 +58,16 @@ jobs:
           cp Licenses/* BepInEx/plugins/Fika
 
       - name: Zip the build and loose files
-        run: zip -r "Fika Release ${{ inputs.release_version }}.zip" BepInEx/plugins/Fika
+        run: zip -r "Fika-Neo Plugin ${{ inputs.release_version }}.zip" BepInEx/plugins/Fika
 
       - name: Create GitHub Release Draft
         uses: softprops/action-gh-release@v3
         with:
           tag_name: "v${{ inputs.release_version }}"
-          name: "Fika Release ${{ inputs.release_version }}"
-          body: "# Compatible with ${{ inputs.eft_version }}"
+          name: "Fika-Neo Plugin ${{ inputs.release_version }}"
+          body: "# Compatible with ${{ inputs.eft_version }}\n\nUnofficial Fika-Neo client build. Not affiliated with Project Fika."
           draft: true
           files: |
-            Fika Release ${{ inputs.release_version }}.zip
+            Fika-Neo Plugin ${{ inputs.release_version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
