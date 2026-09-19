@@ -344,13 +344,16 @@ public sealed partial class FikaServer : MonoBehaviour, INetEventListener, INatP
                 iconType: EFT.Communications.ENotificationIconType.Alert);
         }
 
-        SetHostRequest body = new([.. ipAddresses], _port, useNATPunching,
-            FikaPlugin.Instance.Settings.UseFikaNATPunchServer.Value, FikaBackendUtils.IsHeadless);
-        FikaRequestHandler.UpdateSetHost(body);
-
-        if (!FikaBackendUtils.IsHeadless)
+        if (!FikaBackendUtils.IsHideoutSession)
         {
-            _raidAdminUIScript = RaidAdminUIScript.Create(this, _netServer);
+            SetHostRequest body = new([.. ipAddresses], _port, useNATPunching,
+                FikaPlugin.Instance.Settings.UseFikaNATPunchServer.Value, FikaBackendUtils.IsHeadless);
+            FikaRequestHandler.UpdateSetHost(body);
+
+            if (!FikaBackendUtils.IsHeadless)
+            {
+                _raidAdminUIScript = RaidAdminUIScript.Create(this, _netServer);
+            }
         }
     }
 

@@ -185,6 +185,11 @@ public class CoopHandler : MonoBehaviour
 
     protected void Update()
     {
+        if (ShouldSync && _spawnQueue.Count > 0)
+        {
+            _ = SpawnPlayer(_spawnQueue.Dequeue());
+        }
+
         if (LocalGameInstance == null)
         {
             return;
@@ -192,11 +197,6 @@ public class CoopHandler : MonoBehaviour
 
         if (ShouldSync)
         {
-            if (_spawnQueue.Count > 0)
-            {
-                _ = SpawnPlayer(_spawnQueue.Dequeue());
-            }
-
             if (!_isClient)
             {
                 _charSyncCounter += Time.unscaledDeltaTime;
@@ -343,28 +343,25 @@ public class CoopHandler : MonoBehaviour
             otherPlayer.NetworkHealthController.IsAlive = false;
         }
 
-        if (FikaBackendUtils.IsServer)
+        if (FikaBackendUtils.IsServer && LocalGameInstance != null)
         {
-            if (LocalGameInstance != null)
+            var botController = (Singleton<IFikaGame>.Instance.GameController as HostGameController).BotsController;
+            if (botController != null)
             {
-                var botController = (Singleton<IFikaGame>.Instance.GameController as HostGameController).BotsController;
-                if (botController != null)
-                {
-                    // Start Coroutine as botController might need a while to start sometimes...
+                // Start Coroutine as botController might need a while to start sometimes...
 #if DEBUG
-                    _logger.LogInfo("Starting AddClientToBotEnemies routine.");
+                _logger.LogInfo("Starting AddClientToBotEnemies routine.");
 #endif
-                    StartCoroutine(AddClientToBotEnemies(botController, otherPlayer));
-                }
-                else
-                {
-                    _logger.LogError("botController was null when trying to add player to enemies!");
-                }
+                StartCoroutine(AddClientToBotEnemies(botController, otherPlayer));
             }
             else
             {
-                _logger.LogError("LocalGameInstance was null when trying to add player to enemies!");
+                _logger.LogError("botController was null when trying to add player to enemies!");
             }
+        }
+        else if (FikaBackendUtils.IsServer && !FikaBackendUtils.IsHideoutSession)
+        {
+            _logger.LogError("LocalGameInstance was null when trying to add player to enemies!");
         }
 
         _queuedPlayers.Remove(spawnObject.NetId);
@@ -509,6 +506,17 @@ public class CoopHandler : MonoBehaviour
             if (playerCollider != null && otherCollider != null)
             {
                 PhysicsExtensions.IgnoreCollision(playerCollider, otherCollider);
+            }
+        }
+
+        var localPlayer = gameWorld.MainPlayer;
+        if (localPlayer != null && localPlayer != otherPlayer)
+        {
+            var observedCollider = otherPlayer.GetCharacterControllerCommon().GetCollider();
+            var localCollider = localPlayer.GetCharacterControllerCommon().GetCollider();
+            if (observedCollider != null && localCollider != null)
+            {
+                PhysicsExtensions.IgnoreCollision(observedCollider, localCollider);
             }
         }
 

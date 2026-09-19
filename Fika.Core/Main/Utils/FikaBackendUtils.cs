@@ -104,6 +104,11 @@ public static class FikaBackendUtils
     /// <summary>NekoPT 进行中的藏身处参观目标 accountId。Fika 自身不读写。</summary>
     public static string HideoutVisitInProgressId { get; set; }
 
+    /// <summary>
+    /// HideoutGame 内的 Fika 联机会话。不替换 HideoutGame，也不走 RequestFikaWorld。
+    /// </summary>
+    public static bool IsHideoutSession { get; internal set; }
+
     internal static bool RequestFikaWorld;
     internal static Vector3 ReconnectPosition;
     internal static Vector2 ReconnectRotation;
@@ -136,6 +141,7 @@ public static class FikaBackendUtils
         PartyInviteInProgressId = string.Empty;
         PendingAcceptedRaidInvite = null;
         HideoutVisitInProgressId = string.Empty;
+        IsHideoutSession = false;
         DissonanceComms_Start_Patch.IsReady = false;
     }
 

@@ -334,6 +334,11 @@ public readonly struct PlayerStateData
     }
 
     public PlayerStateData(FikaPlayer player, bool isMoving)
+        : this(player, (ushort)player.NetId, isMoving, player.ObservedOverlap, player.LeftStanceDisabled)
+    {
+    }
+
+    public PlayerStateData(EFT.Player player, ushort netId, bool isMoving, float observedOverlap = 0f, bool leftStanceDisabled = false)
     {
         Position = player.Position;
 
@@ -350,23 +355,24 @@ public readonly struct PlayerStateData
         _movementSpeedPacked = PackFloatToUShort(player.MovementContext.SmoothedCharacterMovementSpeed, 0f, 1f);
         _sprintSpeedPacked = PackFloatToUShort(player.MovementContext.SprintSpeed, 0f, 1f);
         _poseLevelPacked = PackFloatToUShort(player.PoseLevel, 0f, 1f);
-        _weaponOverlapPacked = PackFloatToUShort(player.ObservedOverlap, 0f, 1f);
+        _weaponOverlapPacked = PackFloatToUShort(observedOverlap, 0f, 1f);
 
-        NetId = (ushort)player.NetId;
+        NetId = netId;
 
         _stepPacked = PackIntToByte(player.MovementContext.Step, -1, 1);
         _blindfirePacked = PackIntToByte(player.MovementContext.BlindFire, -1, 1);
 
-        State = player.CurrentManagedState.Name;
+        State = player.CurrentManagedState != null ? player.CurrentManagedState.Name : EPlayerState.Idle;
 
+        var physical = player.Physical;
         _boolFlags = PackBools(
             player.IsInPronePose,
             player.MovementContext.IsSprintEnabled,
-            player.LeftStanceDisabled,
+            leftStanceDisabled,
             player.MovementContext.IsGrounded,
-            player.Physical.SerializationStruct.StaminaExhausted,
-            player.Physical.SerializationStruct.OxygenExhausted,
-            player.Physical.SerializationStruct.HandsExhausted
+            physical != null && physical.SerializationStruct.StaminaExhausted,
+            physical != null && physical.SerializationStruct.OxygenExhausted,
+            physical != null && physical.SerializationStruct.HandsExhausted
         );
 
         var velocity = player.Velocity;
