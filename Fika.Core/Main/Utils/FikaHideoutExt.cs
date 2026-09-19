@@ -33,7 +33,12 @@ public static class FikaHideoutExt
             return;
         }
 
-        FikaBackendUtils.HideoutVisitInProgressId = hideoutData.OwnerAccountId;
+        // 参观目标用资料页 AccountId；不要被快照里的 Aid 覆盖，否则客人和主人登记的 Host 键对不上。
+        if (string.IsNullOrEmpty(FikaBackendUtils.HideoutVisitInProgressId))
+        {
+            FikaBackendUtils.HideoutVisitInProgressId = hideoutData.OwnerAccountId;
+        }
+
         app.HideoutControllerAccess.HideoutSelectedHandler(hideoutData).HandleExceptions();
     }
 
@@ -47,6 +52,7 @@ public static class FikaHideoutExt
             return false;
         }
 
+        FikaBackendUtils.HideoutVisitInProgressId = accountId;
         FikaHideoutViewResponse response;
         try
         {
@@ -54,11 +60,18 @@ public static class FikaHideoutExt
         }
         catch (Exception ex)
         {
+            FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
             FikaGlobals.LogWarning($"FikaHideoutExt.TryVisitAccount failed: {ex.Message}");
             return false;
         }
 
-        return TryVisitFromView(response);
+        if (!TryVisitFromView(response))
+        {
+            FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
+            return false;
+        }
+
+        return true;
     }
 
     public static bool TryVisitFromView(FikaHideoutViewResponse response)
