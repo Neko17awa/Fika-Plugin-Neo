@@ -48,13 +48,19 @@ public static class FikaHideoutCoop
             return;
         }
 
-        if (!inHideout || string.IsNullOrEmpty(ownerAccountId))
+        if (!inHideout)
         {
+            FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
             Stop();
             return;
         }
 
-        if (IsActive && (_isGuest != isGuest || !string.Equals(_ownerAccountId, ownerAccountId, StringComparison.Ordinal)))
+        if (!TryResolveRole(isGuest, ownerAccountId, out var guest, out var ownerId))
+        {
+            return;
+        }
+
+        if (IsActive && (_isGuest != guest || !string.Equals(_ownerAccountId, ownerId, StringComparison.Ordinal)))
         {
             Stop();
             return;
@@ -72,7 +78,12 @@ public static class FikaHideoutCoop
                 return;
             }
 
-            if (isGuest)
+            if (LocalHideoutPlayer() == null)
+            {
+                return;
+            }
+
+            if (guest)
             {
                 if (Time.unscaledTime < _nextJoinAttempt)
                 {
@@ -80,11 +91,11 @@ public static class FikaHideoutCoop
                 }
 
                 _nextJoinAttempt = Time.unscaledTime + JoinRetrySeconds;
-                _ = StartClientAsync(ownerAccountId);
+                _ = StartClientAsync(ownerId);
                 return;
             }
 
-            _ = StartHostAsync(ownerAccountId);
+            _ = StartHostAsync(ownerId);
             return;
         }
 
@@ -93,6 +104,93 @@ public static class FikaHideoutCoop
         {
             RegisterHost();
         }
+    }
+
+    /// <summary>
+    /// 进场加载时 BetterAudio.IsInHideout 会先于 SetGuest，不能默认当主人。
+    /// 参观目标用 HideoutVisitInProgressId（资料页 AccountId），不要用快照 Aid。
+    /// </summary>
+    private static bool TryResolveRole(bool isGuestHint, string ownerAccountIdHint, out bool isGuest, out string ownerAccountId)
+    {
+        isGuest = false;
+        ownerAccountId = "";
+
+        var visitId = FikaBackendUtils.HideoutVisitInProgressId;
+        var hideoutOwner = HideoutPlayerOwner();
+
+        if (!string.IsNullOrEmpty(visitId))
+        {
+            isGuest = true;
+            ownerAccountId = visitId;
+            return true;
+        }
+
+        if (hideoutOwner != null && hideoutOwner.IsGuest)
+        {
+            isGuest = true;
+            ownerAccountId = FirstNonEmpty(ownerAccountIdHint, hideoutOwner.HideoutOwnerAccountId);
+            return !string.IsNullOrEmpty(ownerAccountId);
+        }
+
+        if (hideoutOwner != null && !hideoutOwner.IsGuest)
+        {
+            isGuest = false;
+            ownerAccountId = LocalAccountId();
+            return !string.IsNullOrEmpty(ownerAccountId);
+        }
+
+        if (isGuestHint && !string.IsNullOrEmpty(ownerAccountIdHint) && ownerAccountIdHint != LocalAccountId())
+        {
+            isGuest = true;
+            ownerAccountId = ownerAccountIdHint;
+            return true;
+        }
+
+        // 还在加载 HideoutPlayer，角色未定，绝不开 Host。
+        return false;
+    }
+
+    private static HideoutPlayerOwner HideoutPlayerOwner()
+    {
+        var app = Singleton<ClientApplication<IEftSession>>.Instantiated
+            ? Singleton<ClientApplication<IEftSession>>.Instance as TarkovApplication
+            : null;
+        return app != null && app.HideoutControllerAccess != null
+            ? app.HideoutControllerAccess._playerOwner
+            : null;
+    }
+
+    private static string LocalAccountId()
+    {
+        try
+        {
+            var app = Singleton<ClientApplication<IEftSession>>.Instantiated
+                ? Singleton<ClientApplication<IEftSession>>.Instance as TarkovApplication
+                : null;
+            return app?.Session?.Profile?.AccountId ?? "";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    private static string FirstNonEmpty(params string[] values)
+    {
+        if (values == null)
+        {
+            return "";
+        }
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (!string.IsNullOrEmpty(values[i]))
+            {
+                return values[i];
+            }
+        }
+
+        return "";
     }
 
     public static void Stop()
@@ -174,6 +272,12 @@ public static class FikaHideoutCoop
 
     private static async Task StartHostAsync(string ownerAccountId)
     {
+        if (!string.IsNullOrEmpty(FikaBackendUtils.HideoutVisitInProgressId))
+        {
+            _logger.LogWarning("StartHost ignored: hideout visit in progress");
+            return;
+        }
+
         _busy = true;
         try
         {
@@ -232,6 +336,7 @@ public static class FikaHideoutCoop
         _busy = true;
         try
         {
+            _logger.LogInfo($"Hideout client joining owner {ownerAccountId}");
             FikaHideoutHostResponse host;
             try
             {
@@ -239,12 +344,13 @@ public static class FikaHideoutCoop
             }
             catch (Exception ex)
             {
-                _logger.LogWarning($"GetHideoutHost failed: {ex.Message}");
+                _logger.LogWarning($"GetHideoutHost({ownerAccountId}) failed: {ex.Message}");
                 return;
             }
 
             if (host == null || !host.Ok)
             {
+                _logger.LogInfo($"Hideout host for {ownerAccountId} is not published yet");
                 return;
             }
 
