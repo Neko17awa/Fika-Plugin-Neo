@@ -11,6 +11,7 @@ using Fika.Core.Main.Utils;
 using Fika.Core.Networking.Models;
 using Fika.Core.Networking.Models.Admin;
 using Fika.Core.Networking.Models.Headless;
+using Fika.Core.Networking.Models.Hideout;
 using Fika.Core.Networking.Models.Presence;
 using Fika.Core.UI.Models;
 using Newtonsoft.Json;
@@ -255,5 +256,14 @@ public static class FikaRequestHandler
     public static SetSettingsResponse SaveServerSettings(SetSettingsRequest request)
     {
         return PostJson<SetSettingsRequest, SetSettingsResponse>("/fika/admin/set", request);
+    }
+
+    /// <summary>
+    /// 本服藏身处参观快照。找不到目标时 <see cref="FikaHideoutViewResponse.Ok"/> 为 false。
+    /// NekoPT 使用；Fika 自身不调用。
+    /// </summary>
+    public static FikaHideoutViewResponse GetHideoutView(FikaHideoutViewRequest request)
+    {
+        return PostJson<FikaHideoutViewRequest, FikaHideoutViewResponse>("/fika/hideout/view", request);
     }
 }
