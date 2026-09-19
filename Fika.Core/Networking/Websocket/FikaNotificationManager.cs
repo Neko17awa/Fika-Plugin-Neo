@@ -145,6 +145,14 @@ internal class FikaNotificationManager
                 notification = e.Data.ParseJsonTo<HeadlessConnectedNotification>([]);
                 HandleNotification(notification);
                 break;
+            case EFikaNotification.RaidInviteReceived:
+                notification = e.Data.ParseJsonTo<RaidInviteReceivedNotification>([]);
+                HandleNotification(notification);
+                break;
+            case EFikaNotification.PartyInviteReceived:
+                notification = e.Data.ParseJsonTo<PartyInviteReceivedNotification>([]);
+                HandleNotification(notification);
+                break;
         }
     }
 

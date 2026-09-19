@@ -390,9 +390,17 @@ public class MainMenuUIScript : MonoBehaviour
                     });
                 }
             }
+            SetupGroupActionButton(newPlayer, presence);
             newPlayer.SetActive(true);
             _players.Add(newPlayer);
         }
+    }
+
+    /// <summary>
+    /// NekoPT Harmony 挂点。Fika-Neo 不在在线列表行上画组队按钮，方法体为空，不改加入战局逻辑。
+    /// </summary>
+    private void SetupGroupActionButton(GameObject rowObject, FikaPlayerPresence presence)
+    {
     }
 
     private bool ScavBlocked(IEftSession session, out double remainingMinutes)

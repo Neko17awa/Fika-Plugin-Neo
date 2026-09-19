@@ -9,5 +9,7 @@ public enum EFikaNotification
     PushNotification = 3,
     OpenAdminSettings = 4,
     ShutdownClient = 5,
-    HeadlessConnected = 6
+    HeadlessConnected = 6,
+    RaidInviteReceived = 7,
+    PartyInviteReceived = 8
 }
