@@ -1,14 +1,41 @@
-# Fika - Bepinex plugin
+# Fika-Neo · Plugin
 
-[![Discord](https://img.shields.io/discord/1202292159366037545?style=plastic&logo=discord&logoColor=FFFFFF&label=Fika%20Discord)](https://discord.gg/project-fika)
-[![Downloads](https://img.shields.io/github/downloads/project-fika/Fika-Plugin/total?style=plastic&logo=github)](https://github.com/project-fika/Fika-Plugin/releases/latest)
-![Size](https://img.shields.io/github/languages/code-size/project-fika/Fika-Plugin?style=plastic&logo=github)
-![Issues](https://img.shields.io/github/issues/project-fika/Fika-Plugin?style=plastic&logo=github)
-[![License](https://img.shields.io/badge/CC--BY--NC--SA--4.0-blue?style=plastic&logo=creativecommons&logoColor=FFFFFF&label=License)](https://github.com/project-fika/Fika-Plugin/blob/main/LICENSE.md)
-[![Crowdin](https://badges.crowdin.net/project-fika/localized.svg)](https://crowdin.com/project/project-fika)
-[![.NET Test](https://github.com/project-fika/Fika-Plugin/actions/workflows/dotnet.yml/badge.svg)](https://github.com/project-fika/Fika-Plugin/actions/workflows/dotnet.yml)
+Unofficial client (BepInEx) fork of [project-fika/Fika-Plugin](https://github.com/project-fika/Fika-Plugin). Companion server: [Fika-Server-CSharp-Neo](https://github.com/Neko17awa/Fika-Server-CSharp-Neo).
 
-Client-side changes to make multiplayer work.
+**This is not official Fika.** It is not affiliated with, sponsored by, or endorsed by [Project Fika](https://github.com/project-fika), [SP-Tarkov](https://sp-tarkov.com/), or Battlestate Games. For the supported stack, use the official plugin and the [Fika Wiki](https://wiki.project-fika.com/).
+
+这是 [Fika-Plugin](https://github.com/project-fika/Fika-Plugin) 的非官方客户端分支（Fika-Neo）。对应服务端为 [Fika-Server-CSharp-Neo](https://github.com/Neko17awa/Fika-Server-CSharp-Neo)。**不是**官方 Fika；需要官方联机请走上游仓库和 Wiki。
+
+[<img src="https://mirrors.creativecommons.org/presskit/buttons/88x31/svg/by-nc-sa.svg" alt="CC BY-NC-SA 4.0" width="120">](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en)
+
+| Branch | Role |
+| --- | --- |
+| `main` | Tracks [upstream `main`](https://github.com/project-fika/Fika-Plugin) |
+| `neo` | **Unofficial modification branch** (default) |
+
+Current upstream snapshot: `v2.4.3` (`b968ce16`). Plugin source on the first `neo` commit matches that snapshot; later `neo` commits are Fika-Neo changes.
+
+Sync:
+
+```powershell
+git fetch upstream
+git checkout main
+git merge --ff-only upstream/main
+git checkout neo
+git merge main
+```
+
+## License / 许可
+
+Adapted from Project Fika under **[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en)** (ShareAlike: same license elements). Non-commercial use only. Keep attribution, mark modifications, and do not add extra restrictions. Legal text: [`LICENSE.md`](LICENSE.md). Attribution: [`NOTICE.md`](NOTICE.md).
+
+本仓库是上游的改编作品，仅限非商业使用，必须署名、标明修改、以 CC BY-NC-SA 4.0 再分发。
+
+---
+
+# Upstream: Fika — BepInEx plugin
+
+Client-side changes to make multiplayer work. The sections below are the original Project Fika build notes, kept so the unofficial fork stays usable.
 
 ## State of the project
 
@@ -24,13 +51,8 @@ Fully functional with minimal bugs.
 - Works with all mods that are developed without hacky workarounds
 
 ## Supported OS
+
 Fika is meant to be ran on Windows 10/11. Any other OS might work, but is not officially supported nor do we develop for them. Please respect this when creating an issue/bug report.
-
-## Contributing
-
-You are free to fork, improve and send PRs to improve the project. Please try
-to make your code coherent for the other developers.
-It is recommended to check in with our developers on Discord before spending time on a pull request, so that no time is wasted on unwanted features.
 
 ## Requirements
 
@@ -39,10 +61,8 @@ It is recommended to check in with our developers on Discord before spending tim
 
 ## Setup
 
-1. Copy-paste the contents of `EscapeFromTarkov_Data/Managed/` into
-    `References/`
-2. Copy-paste from SPT.Modules `project/Shared/Hollowed/hollowed.dll` into
-    `References/`
+1. Copy-paste the contents of `EscapeFromTarkov_Data/Managed/` into `References/`
+2. Copy-paste from SPT.Modules `project/Shared/Hollowed/hollowed.dll` into `References/`
 
 ## Build
 
@@ -53,16 +73,9 @@ It is recommended to check in with our developers on Discord before spending tim
 PowerShell | `dotnet build`
 VSCode     | `Terminal > Run Build Task...`
 
-You have to create a `References` folder and populate it with the required
-dependencies from your game installation for the project to build.
+You have to create a `References` folder and populate it with the required dependencies from your game installation for the project to build.
 
-## Licenses
-
-[<img src="https://mirrors.creativecommons.org/presskit/buttons/88x31/svg/by-nc-sa.svg" alt="cc by-nc-sa" width="180" height="63" align="right">](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en)
-
-This project is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.en).
-
-### Credits
+## Credits (from upstream)
 
 **Project** | **License**
 ----------- | -----------------------------------------------------------------------
@@ -71,4 +84,8 @@ SIT         | [NCSA](./Licenses/LICENSE-SIT.md) (`Forked from SIT.Client master:
 Open.NAT    | [MIT](https://github.com/lontivero/Open.NAT/blob/master/LICENSE) (for UPnP implementation)
 LiteNetLib  | [MIT](https://github.com/RevenantX/LiteNetLib/blob/master/LICENSE.txt) (for P2P UDP implementation)
 
-<a href="https://crowdin.com/?utm_term=click-badge-add-on" rel="nofollow"><img style="width:140;height:40px" src="https://badges.crowdin.net/badge/light/crowdin-on-dark.png" srcset="https://badges.crowdin.net/badge/light/crowdin-on-dark.png 1x,https://badges.crowdin.net/badge/light/crowdin-on-dark@2x.png 2x" alt="Crowdin | Agile localization for tech companies" /></a>
+## Disclaimer / 声明
+
+Escape From Tarkov is a trademark of Battlestate Games. Fika-Neo Plugin is an unofficial, non-commercial adaptation for private modification and study, provided as-is under CC BY-NC-SA 4.0 Section 5.
+
+Escape From Tarkov 为 Battlestate Games 的商标。本仓库仅用于非商业的私人修改与研究，按现状提供，不作任何担保。
