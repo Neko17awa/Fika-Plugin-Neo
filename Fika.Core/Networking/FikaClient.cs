@@ -28,6 +28,7 @@ using Fika.Core.Networking.Packets.Generic;
 using Fika.Core.Networking.Packets.Generic.SubPackets;
 using Fika.Core.Networking.Packets.Player;
 using Fika.Core.Networking.Packets.Player.Common;
+using Fika.Core.Networking.Packets.Hideout;
 using Fika.Core.Networking.Packets.World;
 using Fika.Core.Networking.Pooling;
 using Fika.Core.Networking.Snapshotting;
@@ -286,6 +287,7 @@ public sealed partial class FikaClient : MonoBehaviour, INetEventListener, IFika
         RegisterPacket<ClearSnapshotterPacket>(OnClearSnapshotterPacketReceived);
         RegisterPacket<ProceedResponsePacket>(OnProceedResponsePacketReceived);
         RegisterPacket<SpawnItemInInventoryPacket>(SpawnItemInInventoryPacketReceived);
+        RegisterPacket<HideoutWorldStatePacket>(OnHideoutWorldStatePacketReceived);
 
         RegisterReusable<WorldPacket>(OnWorldPacketReceived);
 
