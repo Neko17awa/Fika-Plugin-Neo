@@ -14,6 +14,7 @@ using EFT.Interactive;
 using EFT.InventoryLogic;
 using EFT.Vehicle;
 using Fika.Core.Main.ClientClasses;
+using Fika.Core.Main.Components;
 using Fika.Core.Main.Factories;
 using Fika.Core.Main.GameMode;
 using Fika.Core.Main.ObservedClasses;
@@ -26,6 +27,7 @@ using Fika.Core.Networking.Packets.Debug;
 using Fika.Core.Networking.Packets.FirearmController;
 using Fika.Core.Networking.Packets.Generic;
 using Fika.Core.Networking.Packets.Generic.SubPackets;
+using Fika.Core.Networking.Packets.Hideout;
 using Fika.Core.Networking.Packets.Player;
 using Fika.Core.Networking.Packets.Player.Common;
 using Fika.Core.Networking.Packets.World;
@@ -977,5 +979,15 @@ public sealed partial class FikaClient
     {
         NotificationManager.DisplayMessageNotification(packet.Message.Localized(), packet.NotificationDurationType,
             packet.NotificationIconType, packet.Color);
+    }
+
+    private void OnHideoutWorldStatePacketReceived(HideoutWorldStatePacket packet)
+    {
+        if (!FikaBackendUtils.IsHideoutSession)
+        {
+            return;
+        }
+
+        HideoutWorldSync.Apply(packet);
     }
 }

@@ -32,6 +32,13 @@ public static class FikaHideoutCoop
 
     public static bool IsHosting => IsActive && !_isGuest;
 
+    public static bool IsGuest => IsActive && _isGuest;
+
+    /// <summary>
+    /// 已锁定参观身份（含联机尚未起来时），客人不得改灯光/发电机/装饰档案。
+    /// </summary>
+    public static bool IsVisitGuest => _visitLocked || _isGuest;
+
     public static bool TryGetHostPublish(out FikaHideoutHostRequest request)
     {
         request = _lastHostRequest;
@@ -195,6 +202,7 @@ public static class FikaHideoutCoop
         else
         {
             MaybeResendHostCharacter();
+            HideoutWorldSync.Tick();
             if (Time.unscaledTime >= _nextHostHeartbeat)
             {
                 RegisterHost();
@@ -302,6 +310,7 @@ public static class FikaHideoutCoop
         if (!IsActive && _sender == null && !_subscribed)
         {
             _stopRequested = false;
+            HideoutWorldSync.Reset();
             return;
         }
 
@@ -358,6 +367,7 @@ public static class FikaHideoutCoop
         _nextHostCharacterSend = -999f;
         _nextJoinAttempt = -999f;
         _nextHostHeartbeat = -999f;
+        HideoutWorldSync.Reset();
         _logger.LogInfo("Hideout coop stopped");
     }
 
@@ -628,6 +638,7 @@ public static class FikaHideoutCoop
         }
 
         SendLocalCharacter(evt.Peer);
+        HideoutWorldSync.SendToPeer(evt.Peer);
     }
 
     public static void SendLocalCharacterToPeer(NetPeer peer)
