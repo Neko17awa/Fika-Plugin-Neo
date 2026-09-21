@@ -135,6 +135,35 @@ public static class HideoutItemSync
         });
     }
 
+    public static void ForceObservedUnarmed(ObservedPlayer observed)
+    {
+        if (observed == null)
+        {
+            return;
+        }
+
+        var applying = IsApplying;
+        IsApplying = true;
+        try
+        {
+            observed.HandleHideoutHands(EProceedType.EmptyHands, null);
+            ApplyPatrol(observed, true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Force hideout unarmed failed: {ex}");
+        }
+        finally
+        {
+            IsApplying = applying;
+        }
+    }
+
+    public static void ApplyObservedPatrol(ObservedPlayer observed, bool patrol)
+    {
+        ApplyPatrol(observed, patrol);
+    }
+
     public static void SendUnequipHands(Player player, bool fastDrop)
     {
         if (!CanSend(player))
@@ -688,13 +717,32 @@ public static class HideoutItemSync
 
     private static void ApplyPatrol(ObservedPlayer observed, bool patrol)
     {
-        if (observed?.MovementContext == null)
+        if (observed == null)
         {
             return;
         }
 
-        observed.MovementContext.BlockFirearms = patrol;
-        observed.MovementContext.SetPatrol(patrol);
-        observed.HandsAnimator?.SetPatrol(patrol);
+        try
+        {
+            if (observed.MovementContext != null)
+            {
+                var movement = Traverse.Create(observed.MovementContext);
+                movement.Field("_blockFirearms").SetValue(patrol);
+                movement.Field("_isInPatrol").SetValue(patrol);
+            }
+
+            observed.HandsAnimator?.SetPatrol(patrol);
+            observed.HandsController?.FirearmsAnimator?.SetPatrol(patrol);
+            if (patrol && observed.HandsController is IEmptyHandsController)
+            {
+                observed.MovementContext?.PlayerAnimator?.SetWeaponId(PlayerAnimator.EWeaponAnimationType.EmptyHands);
+            }
+
+            observed.HandsController?.FastForwardCurrentState();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"Apply hideout patrol failed: {ex.Message}");
+        }
     }
 }

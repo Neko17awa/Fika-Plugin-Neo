@@ -2,6 +2,7 @@ using System.Reflection;
 using EFT;
 using EFT.Hideout;
 using Fika.Core.Main.Components;
+using HarmonyLib;
 using SPT.Reflection.Patching;
 
 namespace Fika.Core.Main.Patches.Hideout;
@@ -117,5 +118,39 @@ public class HideoutCustomizationController_InstallCustomizationOffer_Patch : Mo
     public static bool Prefix()
     {
         return !FikaHideoutCoop.IsVisitGuest;
+    }
+}
+
+/// <summary>
+/// 参观端 HideoutCameraController / AmbianceController 可能尚未挂上，原方法会空引用。
+/// </summary>
+public class HideoutController_UpdateCameraFlashlight_Patch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return typeof(HideoutController).GetMethod(nameof(HideoutController.UpdateCameraFlashlight));
+    }
+
+    [PatchPrefix]
+    public static bool Prefix(HideoutController __instance)
+    {
+        var traverse = Traverse.Create(__instance);
+        var camera = traverse.Field("_hideoutCameraController").GetValue<HideoutCameraController>();
+        var ambiance = traverse.Field("_ambianceController").GetValue<AmbianceController>();
+        return camera != null && ambiance != null;
+    }
+}
+
+public class HideoutController_EnergySupplyChanged_Patch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return typeof(HideoutController).GetMethod(nameof(HideoutController.EnergySupplyChanged));
+    }
+
+    [PatchPrefix]
+    public static bool Prefix(HideoutController __instance)
+    {
+        return Traverse.Create(__instance).Field("_ambianceController").GetValue<AmbianceController>() != null;
     }
 }
