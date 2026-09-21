@@ -48,7 +48,7 @@ public static class FikaHideoutCoop
     private static readonly ManualLogSource _logger = Logger.CreateLogSource("Fika.HideoutCoop");
     private const float JoinRetrySeconds = 2f;
     private const float HostHeartbeatSeconds = 15f;
-    private const float HostCharacterRetrySeconds = 2f;
+    private const float HostCharacterRetrySeconds = 4f;
 
     private static bool _busy;
     private static bool _stopRequested;
@@ -63,7 +63,6 @@ public static class FikaHideoutCoop
     private static bool _ownConfirmed;
     private static string _lockedOwnerId = "";
     private static FikaHideoutHostRequest _lastHostRequest;
-    private static int _lastObservedCount;
     private static float _nextHostCharacterSend = -999f;
 
     /// <summary>
@@ -199,15 +198,13 @@ public static class FikaHideoutCoop
         if (_isGuest)
         {
             MaybeRequestHostCharacter();
+            return;
         }
-        else
+
+        HideoutWorldSync.Tick();
+        if (Time.unscaledTime >= _nextHostHeartbeat)
         {
-            MaybeResendHostCharacter();
-            HideoutWorldSync.Tick();
-            if (Time.unscaledTime >= _nextHostHeartbeat)
-            {
-                RegisterHost();
-            }
+            RegisterHost();
         }
     }
 
@@ -365,7 +362,6 @@ public static class FikaHideoutCoop
         _ownerAccountId = "";
         _characterSent = false;
         _lastHostRequest = null;
-        _lastObservedCount = 0;
         _nextHostCharacterSend = -999f;
         _nextJoinAttempt = -999f;
         _nextHostHeartbeat = -999f;
@@ -663,28 +659,6 @@ public static class FikaHideoutCoop
         _characterSent = false;
     }
 
-    private static void MaybeResendHostCharacter()
-    {
-        if (!Singleton<FikaServer>.Instantiated)
-        {
-            return;
-        }
-
-        var peers = Singleton<FikaServer>.Instance.NetServer?.ConnectedPeersCount ?? 0;
-        if (peers <= 0)
-        {
-            return;
-        }
-
-        var observed = Singleton<IFikaNetworkManager>.Instance?.ObservedPlayers?.Count ?? 0;
-        if (observed > _lastObservedCount || Time.unscaledTime >= _nextHostCharacterSend)
-        {
-            _lastObservedCount = observed;
-            _nextHostCharacterSend = Time.unscaledTime + HostCharacterRetrySeconds;
-            SendLocalCharacter(null);
-        }
-    }
-
     private static void MaybeRequestHostCharacter()
     {
         var manager = Singleton<IFikaNetworkManager>.Instance;
@@ -705,7 +679,6 @@ public static class FikaHideoutCoop
             RequestSubPacket = new RequestSubPackets.RequestCharactersPacket([1])
         };
         Singleton<FikaClient>.Instance.SendData(ref request, DeliveryMethod.ReliableOrdered);
-        _logger.LogInfo("Requested hideout host character");
     }
 
     private static void SendLocalCharacter(NetPeer peer)
@@ -755,12 +728,12 @@ public static class FikaHideoutCoop
         if (peer != null && Singleton<FikaServer>.Instantiated)
         {
             Singleton<FikaServer>.Instance.SendGenericPacketToPeer(EGenericSubPacketType.SendCharacter, packet, peer);
-            _logger.LogInfo($"Hideout character sent to peer netId={manager.NetId} pos={player.Transform.position}");
+            _logger.LogInfo($"Hideout character sent to peer {peer.Id} netId={manager.NetId}");
             return;
         }
 
         manager.SendGenericPacket(EGenericSubPacketType.SendCharacter, packet, true);
-        _logger.LogInfo($"Hideout character broadcast netId={manager.NetId} pos={player.Transform.position}");
+        _logger.LogInfo($"Hideout character sent netId={manager.NetId}");
     }
 
     private static void RegisterHost()
@@ -783,9 +756,13 @@ public static class FikaHideoutCoop
                 UseFikaNatPunchServer = FikaPlugin.Instance.Settings.UseFikaNATPunchServer.Value
             };
             FikaRequestHandler.SetHideoutHost(request);
+            var firstPublish = _lastHostRequest == null;
             _lastHostRequest = request;
             _nextHostHeartbeat = Time.unscaledTime + HostHeartbeatSeconds;
-            _logger.LogInfo($"SetHideoutHost account={_ownerAccountId} port={request.Port}");
+            if (firstPublish)
+            {
+                _logger.LogInfo($"SetHideoutHost account={_ownerAccountId} port={request.Port}");
+            }
         }
         catch (Exception ex)
         {
