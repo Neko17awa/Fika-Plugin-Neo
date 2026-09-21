@@ -195,6 +195,7 @@ public static class FikaHideoutCoop
         }
 
         EnsureLocalSync();
+        HideoutItemSync.Tick();
         if (_isGuest)
         {
             MaybeRequestHostCharacter();
@@ -311,6 +312,7 @@ public static class FikaHideoutCoop
         {
             _stopRequested = false;
             HideoutWorldSync.Reset();
+            HideoutItemSync.Reset();
             return;
         }
 
@@ -368,6 +370,7 @@ public static class FikaHideoutCoop
         _nextJoinAttempt = -999f;
         _nextHostHeartbeat = -999f;
         HideoutWorldSync.Reset();
+        HideoutItemSync.Reset();
         _logger.LogInfo("Hideout coop stopped");
     }
 
@@ -604,6 +607,7 @@ public static class FikaHideoutCoop
         if (!_characterSent)
         {
             SendLocalCharacter(null);
+            HideoutItemSync.SendCurrentState();
             _characterSent = true;
         }
     }
@@ -639,6 +643,7 @@ public static class FikaHideoutCoop
 
         SendLocalCharacter(evt.Peer);
         HideoutWorldSync.SendToPeer(evt.Peer);
+        HideoutItemSync.SendToPeer(evt.Peer);
     }
 
     public static void SendLocalCharacterToPeer(NetPeer peer)

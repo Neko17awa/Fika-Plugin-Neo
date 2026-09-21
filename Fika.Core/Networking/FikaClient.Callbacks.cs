@@ -990,4 +990,14 @@ public sealed partial class FikaClient
 
         HideoutWorldSync.Apply(packet);
     }
+
+    private void OnHideoutItemPacketReceived(HideoutItemPacket packet)
+    {
+        if (!FikaBackendUtils.IsHideoutSession)
+        {
+            return;
+        }
+
+        HideoutItemSync.Apply(packet);
+    }
 }
