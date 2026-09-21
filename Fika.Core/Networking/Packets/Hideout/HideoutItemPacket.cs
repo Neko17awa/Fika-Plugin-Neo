@@ -21,6 +21,7 @@ public class HideoutItemPacket : INetSerializable
     public int NetId;
     public EProceedType ProceedType;
     public bool FastDrop;
+    public bool Patrol;
     public Item Item;
     public string LootId = "";
     public Vector3 Position;
@@ -36,6 +37,7 @@ public class HideoutItemPacket : INetSerializable
             NetId = NetId,
             ProceedType = ProceedType,
             FastDrop = FastDrop,
+            Patrol = Patrol,
             Item = Item,
             LootId = LootId ?? "",
             Position = Position,
@@ -53,6 +55,7 @@ public class HideoutItemPacket : INetSerializable
         {
             case EHideoutItemAction.Hands:
                 ProceedType = reader.GetEnum<EProceedType>();
+                Patrol = reader.GetBool();
                 Item = ProceedType is EProceedType.EmptyHands ? null : reader.GetItem();
                 break;
             case EHideoutItemAction.UnequipHands:
@@ -81,6 +84,7 @@ public class HideoutItemPacket : INetSerializable
         {
             case EHideoutItemAction.Hands:
                 writer.PutEnum(ProceedType);
+                writer.Put(Patrol);
                 if (ProceedType is not EProceedType.EmptyHands)
                 {
                     writer.PutItem(Item);

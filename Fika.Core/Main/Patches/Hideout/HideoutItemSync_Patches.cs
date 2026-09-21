@@ -115,3 +115,17 @@ public class LootItem_RemoveLootItem_Patch : ModulePatch
         HideoutItemSync.SendPickup(__instance.ItemId);
     }
 }
+
+public class HideoutPlayer_SetPatrol_Patch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return typeof(HideoutPlayer).GetMethod(nameof(HideoutPlayer.SetPatrol));
+    }
+
+    [PatchPostfix]
+    public static void Postfix(HideoutPlayer __instance)
+    {
+        HideoutItemSync.OnPatrolChanged(__instance);
+    }
+}
