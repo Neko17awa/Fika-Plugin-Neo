@@ -2099,6 +2099,90 @@ public sealed class ObservedPlayer : FikaPlayer
         }
     }
 
+    public void HandleHideoutHands(EProceedType proceedType, Item item)
+    {
+        switch (proceedType)
+        {
+            case EProceedType.EmptyHands:
+                CreateEmptyHandsController();
+                return;
+            case EProceedType.Weapon:
+            case EProceedType.Stationary:
+                if (item is Weapon)
+                {
+                    CreateFirearmControllerHandler firearm = new(this) { item = item };
+                    CreateHandsController(firearm.ReturnController, item);
+                }
+                return;
+            case EProceedType.GrenadeClass:
+                if (item is ThrowWeap)
+                {
+                    CreateGrenadeControllerHandler grenade = new(this) { Item = item };
+                    CreateHandsController(grenade.ReturnController, item);
+                }
+                return;
+            case EProceedType.QuickGrenadeThrow:
+                if (item is ThrowWeap)
+                {
+                    CreateQuickGrenadeControllerHandler quickGrenade = new(this) { tem = item };
+                    CreateHandsController(quickGrenade.ReturnController, item);
+                }
+                return;
+            case EProceedType.MedsClass:
+            case EProceedType.FoodClass:
+                if (item != null)
+                {
+                    CreateMedsControllerHandler meds = new(this, item, new(EBodyPart.Head), 1f, 1);
+                    CreateHandsController(meds.ReturnController, item);
+                }
+                return;
+            case EProceedType.Knife:
+                {
+                    var knife = item?.GetItemComponent<KnifeComponent>();
+                    if (knife != null)
+                    {
+                        CreateKnifeControllerHandler knifeHandler = new(this) { Knife = knife };
+                        CreateHandsController(knifeHandler.ReturnController, knife.Item);
+                    }
+                    return;
+                }
+            case EProceedType.QuickKnifeKick:
+                {
+                    var knife = item?.GetItemComponent<KnifeComponent>();
+                    if (knife != null)
+                    {
+                        CreateQuickKnifeControllerHandler knifeHandler = new(this) { Knife = knife };
+                        CreateHandsController(knifeHandler.ReturnController, knife.Item);
+                    }
+                    return;
+                }
+            case EProceedType.UsableItem:
+                if (item != null)
+                {
+                    CreateUsableItemControllerHandler usable = new(this, item);
+                    CreateHandsController(usable.ReturnController, item);
+                }
+                return;
+            case EProceedType.QuickUse:
+                if (item != null)
+                {
+                    CreateQuickUseItemControllerHandler quickUse = new(this, item);
+                    CreateHandsController(quickUse.ReturnController, item);
+                }
+                return;
+            default:
+                if (item is Weapon)
+                {
+                    CreateFirearmControllerHandler fallback = new(this) { item = item };
+                    CreateHandsController(fallback.ReturnController, item);
+                    return;
+                }
+
+                CreateEmptyHandsController();
+                return;
+        }
+    }
+
     private void CreateEmptyHandsController()
     {
         CreateHandsController(ReturnEmptyHandsController, null);

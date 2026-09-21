@@ -288,6 +288,7 @@ public sealed partial class FikaClient : MonoBehaviour, INetEventListener, IFika
         RegisterPacket<ProceedResponsePacket>(OnProceedResponsePacketReceived);
         RegisterPacket<SpawnItemInInventoryPacket>(SpawnItemInInventoryPacketReceived);
         RegisterPacket<HideoutWorldStatePacket>(OnHideoutWorldStatePacketReceived);
+        RegisterPacket<HideoutItemPacket>(OnHideoutItemPacketReceived);
 
         RegisterReusable<WorldPacket>(OnWorldPacketReceived);
 

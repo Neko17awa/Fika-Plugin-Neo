@@ -45,6 +45,7 @@ using Fika.Core.Networking.Open.Nat;
 using Fika.Core.Networking.Open.Nat.Enums;
 using Fika.Core.Networking.Models;
 using Fika.Core.Networking.Packets.Generic;
+using Fika.Core.Networking.Packets.Hideout;
 using Fika.Core.Networking.Packets.Player.Common;
 using Fika.Core.Networking.Packets.Generic.SubPackets;
 using Fika.Core.Networking.Snapshotting;
@@ -462,6 +463,7 @@ public sealed partial class FikaServer : MonoBehaviour, INetEventListener, INatP
         RegisterPacket<KnifeHitPacket, NetPeer>(OnKnifeHitPacketReceived);
         RegisterPacket<QuestSyncPacket, NetPeer>(OnQuestSyncPacketReceived);
         RegisterPacket<SpawnItemInInventoryPacket, NetPeer>(SpawnItemInInventoryPacketReceived);
+        RegisterPacket<HideoutItemPacket, NetPeer>(OnHideoutItemPacketReceived);
 
         RegisterReusable<WorldPacket, NetPeer>(OnWorldPacketReceived);
 
