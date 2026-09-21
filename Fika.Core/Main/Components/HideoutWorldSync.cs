@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using BepInEx.Logging;
 using Comfort.Common;
 using EFT;
@@ -11,13 +12,16 @@ using HarmonyLib;
 namespace Fika.Core.Main.Components;
 
 /// <summary>
-/// 主人采集藏身处世界环境并广播；客人只改场景视觉，不写自己的 HideoutLocalData / 档案。
+/// 藏身处环境走 Fika 发包：挂在灯光/供电/区域/装饰的变更点上，按帧合并一次快照。
+/// 客人只改场景视觉，不写自己的 HideoutLocalData / 档案。
 /// </summary>
 public static class HideoutWorldSync
 {
     public static bool IsApplying { get; private set; }
 
     private static readonly ManualLogSource _logger = Logger.CreateLogSource("Fika.HideoutWorld");
+    private static readonly FieldInfo LightingField =
+        AccessTools.Field(typeof(HideoutController), "_currentLightingLevel");
     private static readonly EHideoutCustomizationType[] GlobalCustomizationTypes =
     [
         EHideoutCustomizationType.Floor,
@@ -27,12 +31,10 @@ public static class HideoutWorldSync
         EHideoutCustomizationType.ShootingRangeMark
     ];
 
-    private const float PollSeconds = 0.5f;
-    private const float HeartbeatSeconds = 2f;
-
+    private static readonly List<Action> _unsubs = [];
+    private static HideoutRepresentation _bound;
+    private static HideoutController _controller;
     private static bool _dirty;
-    private static float _nextPoll = -999f;
-    private static float _nextHeartbeat = -999f;
     private static string _lastSentFingerprint = "";
     private static string _lastAppliedFingerprint = "";
 
@@ -44,41 +46,35 @@ public static class HideoutWorldSync
         }
 
         _dirty = true;
-        if (Singleton<FikaServer>.Instantiated
-            && (Singleton<FikaServer>.Instance.NetServer?.ConnectedPeersCount ?? 0) > 0)
-        {
-            SendToAll();
-        }
     }
 
     public static void Reset()
     {
         IsApplying = false;
         _dirty = false;
-        _nextPoll = -999f;
-        _nextHeartbeat = -999f;
         _lastSentFingerprint = "";
         _lastAppliedFingerprint = "";
+        _controller = null;
+        Unsubscribe();
     }
 
-    public static void Tick()
+    /// <summary>
+    /// 挂上藏身处自己的变更事件，有脏标记才按帧发一次。不扫描场景。
+    /// </summary>
+    public static void Pump()
     {
-        if (!FikaHideoutCoop.IsHosting || !Singleton<FikaServer>.Instantiated)
+        if (!FikaHideoutCoop.IsHosting)
         {
             return;
         }
 
-        var peers = Singleton<FikaServer>.Instance.NetServer?.ConnectedPeersCount ?? 0;
-        if (peers <= 0)
+        EnsureSubscribed();
+        if (!_dirty || !Singleton<HideoutRepresentation>.Instantiated)
         {
             return;
         }
 
-        if (_dirty || Time.unscaledTime >= _nextPoll)
-        {
-            _nextPoll = Time.unscaledTime + PollSeconds;
-            SendToAll();
-        }
+        SendToAll();
     }
 
     public static void SendToPeer(NetPeer peer)
@@ -95,12 +91,20 @@ public static class HideoutWorldSync
             return;
         }
 
+        _lastSentFingerprint = packet.Fingerprint();
+        _dirty = false;
         Singleton<FikaServer>.Instance.SendDataToPeer(ref packet, DeliveryMethod.ReliableOrdered, peer);
         _logger.LogInfo($"Sent hideout world state to peer {peer.Id}");
     }
 
     private static void SendToAll()
     {
+        if (!Singleton<FikaServer>.Instantiated
+            || (Singleton<FikaServer>.Instance.NetServer?.ConnectedPeersCount ?? 0) <= 0)
+        {
+            return;
+        }
+
         var packet = Capture();
         if (packet == null)
         {
@@ -108,20 +112,15 @@ public static class HideoutWorldSync
         }
 
         var fingerprint = packet.Fingerprint();
-        var changed = fingerprint != _lastSentFingerprint;
-        if (!changed && !_dirty && Time.unscaledTime < _nextHeartbeat)
+        _dirty = false;
+        if (fingerprint == _lastSentFingerprint)
         {
             return;
         }
 
         _lastSentFingerprint = fingerprint;
-        _dirty = false;
-        _nextHeartbeat = Time.unscaledTime + HeartbeatSeconds;
         Singleton<FikaServer>.Instance.SendData(ref packet, DeliveryMethod.ReliableOrdered, true);
-        if (changed)
-        {
-            _logger.LogInfo($"Broadcast hideout world state lighting={packet.LightingLevel} energy={packet.EnergyOn} areas={packet.Areas.Length}");
-        }
+        _logger.LogInfo($"Broadcast hideout world state lighting={packet.LightingLevel} energy={packet.EnergyOn} areas={packet.Areas.Length}");
     }
 
     public static void Apply(HideoutWorldStatePacket packet)
@@ -225,12 +224,19 @@ public static class HideoutWorldSync
         return areas;
     }
 
-    private static ELightingLevel CaptureLightingLevel()
+    public static void BindController(HideoutController controller)
     {
-        var controller = UnityEngine.Object.FindObjectOfType<HideoutController>(true);
         if (controller != null)
         {
-            return Traverse.Create(controller).Field("_currentLightingLevel").GetValue<ELightingLevel>();
+            _controller = controller;
+        }
+    }
+
+    private static ELightingLevel CaptureLightingLevel()
+    {
+        if (_controller != null && LightingField != null)
+        {
+            return (ELightingLevel)LightingField.GetValue(_controller);
         }
 
         return HideoutLocalData.GlobalLightingLevel;
@@ -315,9 +321,84 @@ public static class HideoutWorldSync
         }
     }
 
+    private static void EnsureSubscribed()
+    {
+        if (!Singleton<HideoutRepresentation>.Instantiated)
+        {
+            return;
+        }
+
+        var representation = Singleton<HideoutRepresentation>.Instance;
+        if (_bound == representation)
+        {
+            return;
+        }
+
+        Unsubscribe();
+        _bound = representation;
+        var energy = representation.EnergyController;
+        if (energy != null)
+        {
+            Action<bool> onEnergy = OnEnergyChanged;
+            energy.OnEnergyGenerationChanged += onEnergy;
+            _unsubs.Add(() => energy.OnEnergyGenerationChanged -= onEnergy);
+        }
+
+        var areas = representation.AreaDatas;
+        if (areas == null)
+        {
+            return;
+        }
+
+        foreach (var data in areas)
+        {
+            if (data == null)
+            {
+                continue;
+            }
+
+            _unsubs.Add(data.StatusUpdated.Subscribe(MarkDirty));
+            _unsubs.Add(data.LevelUpdated.Subscribe(OnLevelChanged));
+            _unsubs.Add(data.LightStatusChanged.Subscribe(OnLightStatusChanged));
+        }
+    }
+
+    private static void Unsubscribe()
+    {
+        for (var i = 0; i < _unsubs.Count; i++)
+        {
+            try
+            {
+                _unsubs[i]?.Invoke();
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+
+        _unsubs.Clear();
+        _bound = null;
+    }
+
+    private static void OnEnergyChanged(bool _)
+    {
+        MarkDirty();
+    }
+
+    private static void OnLevelChanged(bool _)
+    {
+        MarkDirty();
+    }
+
+    private static void OnLightStatusChanged(ELightStatus _)
+    {
+        MarkDirty();
+    }
+
     private static void ApplyLighting(ELightingLevel level)
     {
-        var controller = UnityEngine.Object.FindObjectOfType<HideoutController>(true);
+        var controller = _controller;
         if (controller == null)
         {
             return;
