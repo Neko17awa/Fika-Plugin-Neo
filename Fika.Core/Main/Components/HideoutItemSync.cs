@@ -19,6 +19,7 @@ using Fika.Core.Networking.Packets.Generic;
 using Fika.Core.Networking.Packets.Generic.SubPackets;
 using Fika.Core.Networking.Packets.Hideout;
 using Fika.Core.Networking.Packets.Player.Common;
+using HarmonyLib;
 
 namespace Fika.Core.Main.Components;
 
@@ -31,11 +32,13 @@ public static class HideoutItemSync
 
     private static readonly ManualLogSource _logger = Logger.CreateLogSource("Fika.HideoutItem");
     private static readonly Dictionary<int, HideoutItemPacket> _pending = [];
+    private static string _lastHandsFingerprint = "";
 
     public static void Reset()
     {
         IsApplying = false;
         _pending.Clear();
+        _lastHandsFingerprint = "";
     }
 
     public static void Tick()
@@ -103,14 +106,17 @@ public static class HideoutItemSync
             return;
         }
 
-        var packet = new HideoutItemPacket
+        Send(CaptureHands(player));
+    }
+
+    public static void OnPatrolChanged(HideoutPlayer player)
+    {
+        if (!CanSend(player))
         {
-            Action = EHideoutItemAction.Hands,
-            NetId = LocalNetId(),
-            ProceedType = ProceedTypeFromItem(item),
-            Item = item
-        };
-        Send(packet);
+            return;
+        }
+
+        Send(CaptureHands(player));
     }
 
     public static void SendEmptyHands(Player player)
@@ -124,7 +130,8 @@ public static class HideoutItemSync
         {
             Action = EHideoutItemAction.Hands,
             NetId = LocalNetId(),
-            ProceedType = EProceedType.EmptyHands
+            ProceedType = EProceedType.EmptyHands,
+            Patrol = true
         });
     }
 
@@ -269,14 +276,23 @@ public static class HideoutItemSync
             if (packet.Action == EHideoutItemAction.UnequipHands)
             {
                 observed.HandleDropPacket(packet.FastDrop);
+                ApplyPatrol(observed, true);
                 return;
             }
 
             var item = ResolveItem(observed, packet.Item);
+            if (packet.ProceedType is EProceedType.EmptyHands || item is EmptyHands)
+            {
+                observed.HandleHideoutHands(EProceedType.EmptyHands, null);
+                ApplyPatrol(observed, true);
+                return;
+            }
+
             if (packet.ProceedType is not EProceedType.EmptyHands && item == null)
             {
                 _logger.LogWarning($"Hideout hands missing item netId={packet.NetId} type={packet.ProceedType}");
                 observed.HandleHideoutHands(EProceedType.EmptyHands, null);
+                ApplyPatrol(observed, true);
                 return;
             }
 
@@ -291,6 +307,7 @@ public static class HideoutItemSync
                         try
                         {
                             player.HandleHideoutHands(packet.ProceedType, ResolveItem(player, item));
+                            ApplyPatrol(player, packet.Patrol);
                         }
                         finally
                         {
@@ -302,6 +319,7 @@ public static class HideoutItemSync
             }
 
             observed.HandleHideoutHands(packet.ProceedType, null);
+            ApplyPatrol(observed, packet.Patrol);
         }
         catch (Exception ex)
         {
@@ -394,30 +412,47 @@ public static class HideoutItemSync
 
     private static HideoutItemPacket CaptureHands()
     {
-        var player = LocalPlayer();
+        return CaptureHands(LocalPlayer());
+    }
+
+    private static HideoutItemPacket CaptureHands(Player player)
+    {
         var netId = LocalNetId();
         if (player == null || netId <= 0)
         {
             return null;
         }
 
-        var item = player.HandsController != null ? player.HandsController.Item : null;
-        if (item == null)
+        if (LooksUnarmed(player))
         {
-            return new HideoutItemPacket
-            {
-                Action = EHideoutItemAction.Hands,
-                NetId = netId,
-                ProceedType = EProceedType.EmptyHands
-            };
+            return EmptyHandsPacket(netId, patrol: true);
+        }
+
+        var item = player.HandsController != null ? player.HandsController.Item : null;
+        var proceedType = ProceedTypeFromItem(item);
+        if (player.HandsController is IEmptyHandsController || proceedType is EProceedType.EmptyHands || item == null || item is EmptyHands)
+        {
+            return EmptyHandsPacket(netId, IsHideoutPatrol(player));
         }
 
         return new HideoutItemPacket
         {
             Action = EHideoutItemAction.Hands,
             NetId = netId,
-            ProceedType = ProceedTypeFromItem(item),
+            ProceedType = proceedType,
+            Patrol = IsHideoutPatrol(player),
             Item = item
+        };
+    }
+
+    private static HideoutItemPacket EmptyHandsPacket(int netId, bool patrol)
+    {
+        return new HideoutItemPacket
+        {
+            Action = EHideoutItemAction.Hands,
+            NetId = netId,
+            ProceedType = EProceedType.EmptyHands,
+            Patrol = patrol
         };
     }
 
@@ -462,6 +497,17 @@ public static class HideoutItemSync
         if (packet == null || !Singleton<IFikaNetworkManager>.Instantiated)
         {
             return;
+        }
+
+        if (packet.Action == EHideoutItemAction.Hands)
+        {
+            var fingerprint = $"{packet.NetId}|{(int)packet.ProceedType}|{(packet.Patrol ? 1 : 0)}|{packet.Item?.Id}";
+            if (fingerprint == _lastHandsFingerprint)
+            {
+                return;
+            }
+
+            _lastHandsFingerprint = fingerprint;
         }
 
         Singleton<IFikaNetworkManager>.Instance.SendData(ref packet, DeliveryMethod.ReliableOrdered, true);
@@ -577,7 +623,7 @@ public static class HideoutItemSync
 
     public static EProceedType ProceedTypeFromItem(Item item)
     {
-        if (item == null)
+        if (item == null || item is EmptyHands)
         {
             return EProceedType.EmptyHands;
         }
@@ -617,6 +663,38 @@ public static class HideoutItemSync
             return EProceedType.QuickUse;
         }
 
-        return EProceedType.Weapon;
+        return EProceedType.EmptyHands;
+    }
+
+    public static bool LooksUnarmed(Player player)
+    {
+        return player is HideoutPlayer && !IsShootingRange(player);
+    }
+
+    private static bool IsHideoutPatrol(Player player)
+    {
+        return player is HideoutPlayer hideout && hideout.IsInPatrol;
+    }
+
+    private static bool IsShootingRange(Player player)
+    {
+        if (player is not HideoutPlayer hideout)
+        {
+            return false;
+        }
+
+        return Traverse.Create(hideout).Field("_isInShootingRange").GetValue<bool>();
+    }
+
+    private static void ApplyPatrol(ObservedPlayer observed, bool patrol)
+    {
+        if (observed?.MovementContext == null)
+        {
+            return;
+        }
+
+        observed.MovementContext.BlockFirearms = patrol;
+        observed.MovementContext.SetPatrol(patrol);
+        observed.HandsAnimator?.SetPatrol(patrol);
     }
 }

@@ -736,13 +736,20 @@ public static class FikaHideoutCoop
 
         if (player.HandsController != null)
         {
-            packet.PlayerInfoPacket.ControllerType = HandsControllerTypeConvert.FromController(player.HandsController);
-            if (player.HandsController.Item != null)
+            if (HideoutItemSync.LooksUnarmed(player) || player.HandsController is IEmptyHandsController)
             {
-                packet.PlayerInfoPacket.ItemId = player.HandsController.Item.Id;
+                packet.PlayerInfoPacket.ControllerType = EHandsControllerType.Empty;
             }
+            else
+            {
+                packet.PlayerInfoPacket.ControllerType = HandsControllerTypeConvert.FromController(player.HandsController);
+                if (player.HandsController.Item != null && player.HandsController.Item is not EmptyHands)
+                {
+                    packet.PlayerInfoPacket.ItemId = player.HandsController.Item.Id;
+                }
 
-            packet.PlayerInfoPacket.IsStationary = player.MovementContext.IsStationaryWeaponInHands;
+                packet.PlayerInfoPacket.IsStationary = player.MovementContext.IsStationaryWeaponInHands;
+            }
         }
 
         if (peer != null && Singleton<FikaServer>.Instantiated)
