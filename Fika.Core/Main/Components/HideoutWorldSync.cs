@@ -146,20 +146,28 @@ public static class HideoutWorldSync
         IsApplying = true;
         try
         {
-            ApplyAreas(representation, packet);
-            ApplyEnergy(representation, packet.EnergyOn);
-            ApplyLighting(packet.LightingLevel);
-            ApplyCustomization(representation, packet);
+            TryApply("areas", () => ApplyAreas(representation, packet));
+            TryApply("energy", () => ApplyEnergy(representation, packet.EnergyOn));
+            TryApply("lighting", () => ApplyLighting(packet.LightingLevel));
+            TryApply("customization", () => ApplyCustomization(representation, packet));
             _lastAppliedFingerprint = fingerprint;
             _logger.LogInfo($"Applied hideout world state lighting={packet.LightingLevel} energy={packet.EnergyOn}");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"Apply hideout world state failed: {ex.Message}");
         }
         finally
         {
             IsApplying = false;
+        }
+    }
+
+    private static void TryApply(string step, Action apply)
+    {
+        try
+        {
+            apply();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Apply hideout world state failed at {step}: {ex}");
         }
     }
 
@@ -243,29 +251,41 @@ public static class HideoutWorldSync
 
         foreach (var data in representation.AreaDatas)
         {
-            if (!byType.TryGetValue(data.Template.Type, out var snap))
+            if (data?.Template == null)
             {
                 continue;
             }
 
-            if (data.CurrentLevel != snap.Level)
+            try
             {
-                data.SetCurrentLevelDumb(snap.Level, silent: true);
-            }
+                if (!byType.TryGetValue(data.Template.Type, out var snap))
+                {
+                    continue;
+                }
 
-            if (data.Status != snap.Status)
-            {
-                data.Status = snap.Status;
-            }
+                if (data.CurrentLevel != snap.Level)
+                {
+                    data.SetCurrentLevelDumb(snap.Level, silent: true);
+                }
 
-            if (data.IsActive != snap.IsActive)
-            {
-                data.IsActive = snap.IsActive;
-            }
+                if (data.Status != snap.Status)
+                {
+                    data.Status = snap.Status;
+                }
 
-            if (data.LightStatus != snap.LightStatus)
+                if (data.IsActive != snap.IsActive)
+                {
+                    data.IsActive = snap.IsActive;
+                }
+
+                if (data.LightStatus != snap.LightStatus)
+                {
+                    data.LightStatus = snap.LightStatus;
+                }
+            }
+            catch (Exception ex)
             {
-                data.LightStatus = snap.LightStatus;
+                _logger.LogWarning($"Apply hideout area {data.Template.Type} failed: {ex.Message}");
             }
         }
     }
@@ -285,9 +305,13 @@ public static class HideoutWorldSync
             return;
         }
 
+        var generators = Traverse.Create(energy).Field("_generators").GetValue<List<IGenerator>>();
         Traverse.Create(energy).Field("_switchedOn").SetValue(false);
         energy.SetInfinityGeneration(false);
-        energy.SetSwitchedStatus(false);
+        if (generators != null)
+        {
+            energy.SetSwitchedStatus(false);
+        }
     }
 
     private static void ApplyLighting(ELightingLevel level)
@@ -301,7 +325,13 @@ public static class HideoutWorldSync
         var traverse = Traverse.Create(controller);
         traverse.Field("_currentLightingLevel").SetValue(level);
         traverse.Field("_lightInitialized").SetValue(true);
-        controller.UpdateCameraFlashlight();
+
+        var camera = traverse.Field("_hideoutCameraController").GetValue<HideoutCameraController>();
+        var ambiance = traverse.Field("_ambianceController").GetValue<AmbianceController>();
+        if (camera != null && ambiance != null)
+        {
+            controller.UpdateCameraFlashlight();
+        }
 
         if (controller.Areas != null)
         {
@@ -345,6 +375,12 @@ public static class HideoutWorldSync
             return;
         }
 
+        if (!Singleton<CustomizationSolver>.Instantiated
+            || Singleton<CustomizationSolver>.Instance?.HideoutCustomizationItems == null)
+        {
+            return;
+        }
+
         for (var i = 0; i < GlobalCustomizationTypes.Length; i++)
         {
             var type = GlobalCustomizationTypes[i];
@@ -354,13 +390,20 @@ public static class HideoutWorldSync
                 continue;
             }
 
-            var selected = customization.GetSelectedCustomizationItemId(type);
-            if (selected.HasValue && selected.Value.ToString() == itemId)
+            try
             {
-                continue;
-            }
+                var selected = customization.GetSelectedCustomizationItemId(type);
+                if (selected.HasValue && selected.Value.ToString() == itemId)
+                {
+                    continue;
+                }
 
-            customization.InstallCustomization(new MongoID(itemId), type);
+                customization.InstallCustomization(new MongoID(itemId), type);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Apply hideout customization {type} failed: {ex.Message}");
+            }
         }
     }
 }

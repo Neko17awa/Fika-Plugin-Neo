@@ -1942,6 +1942,24 @@ public sealed class ObservedPlayer : FikaPlayer
         }
     }
 
+    private void ApplyHideoutUnarmedIk()
+    {
+        ThirdPersonWeaponRootAuthority = 0f;
+        HandsAnimator?.SetPatrol(true);
+        MovementContext?.PlayerAnimator?.SetWeaponId(PlayerAnimator.EWeaponAnimationType.EmptyHands);
+        MovementContext?.PlayerAnimator?.Animator?.SetLayerWeight(PlayerAnimator.ADDITIVE_AIMING_LAYER_INDEX, 0f);
+        if (HandPosers != null && HandPosers.Length > 0 && HandPosers[0] != null)
+        {
+            HandPosers[0].weight = 0f;
+        }
+
+        if (_observedLimbs != null && _observedLimbs.Length > 1)
+        {
+            _observedLimbs[0].solver.IKRotationWeight = _observedLimbs[0].solver.IKPositionWeight = 0f;
+            _observedLimbs[1].solver.IKRotationWeight = _observedLimbs[1].solver.IKPositionWeight = 0f;
+        }
+    }
+
     private void ObservedVisualPass(float deltaTime, int ikUpdateInterval)
     {
         if (CustomAnimationsAreProcessing || !_cullingHandler.IsVisible || !HealthController.IsAlive)
@@ -1951,8 +1969,14 @@ public sealed class ObservedPlayer : FikaPlayer
 
         _lastDistance = CameraManager.Instance.Distance(Transform.position);
         var isVisibleOrClose = IsVisible && _lastDistance <= EFTHardSettings.Instance.CULL_GROUNDER;
+        var hideoutUnarmed = FikaBackendUtils.IsHideoutSession && HandsController is IEmptyHandsController;
+        if (hideoutUnarmed)
+        {
+            HandsAnimator?.SetPatrol(true);
+            MovementContext?.PlayerAnimator?.SetWeaponId(PlayerAnimator.EWeaponAnimationType.EmptyHands);
+        }
 
-        if (_armsupdated && isVisibleOrClose && !UsedSimplifiedSkeleton)
+        if (_armsupdated && isVisibleOrClose && !UsedSimplifiedSkeleton && !hideoutUnarmed)
         {
             ProceduralWeaponAnimation.ProcessEffectors(deltaTime, 2, Motion, Velocity);
             PlayerBones.Offset = ProceduralWeaponAnimation.HandsContainer.WeaponRootAnim.localPosition;
@@ -1964,39 +1988,47 @@ public sealed class ObservedPlayer : FikaPlayer
             RestoreIKPos();
             ObservedFBBIKUpdate(_lastDistance, ikUpdateInterval);
             MouseLook(false);
-            const float num2 = 1f;
-            var num4 = GetCurveValue(PlayerAnimator.LEFT_STANCE_CURVE);
-            ProceduralWeaponAnimation.GetLeftStanceCurrentCurveValue(num4);
-            _rightHand = 1f - (GetCurveValue(PlayerAnimator.RIGHT_HAND_WEIGHT) * num2);
-            _leftHand = 1f - (GetCurveValue(PlayerAnimator.LEFT_HAND_WEIGHT) * num2);
-            ThirdPersonWeaponRootAuthority = MovementContext.IsInMountedState ? 0f : (GetCurveValue(PlayerAnimator.WEAPON_ROOT_3RD) * num2);
-            AdjustUtilityLayerWeight(_lastDistance);
-            if (_armsupdated)
+            if (hideoutUnarmed)
             {
-                var num5 = ThirdPersonWeaponRootAuthority;
-                if (MovementContext.StationaryWeapon != null)
-                {
-                    num5 = 0f;
-                }
+                ApplyHideoutUnarmedIk();
+                _prevHeight = Transform.position.y;
+            }
+            else
+            {
+                const float num2 = 1f;
+                var num4 = GetCurveValue(PlayerAnimator.LEFT_STANCE_CURVE);
                 ProceduralWeaponAnimation.GetLeftStanceCurrentCurveValue(num4);
-                PlayerBones.ShiftWeaponRoot(deltaTime, EPointOfView.ThirdPerson, num5);
+                _rightHand = 1f - (GetCurveValue(PlayerAnimator.RIGHT_HAND_WEIGHT) * num2);
+                _leftHand = 1f - (GetCurveValue(PlayerAnimator.LEFT_HAND_WEIGHT) * num2);
+                ThirdPersonWeaponRootAuthority = MovementContext.IsInMountedState ? 0f : (GetCurveValue(PlayerAnimator.WEAPON_ROOT_3RD) * num2);
+                AdjustUtilityLayerWeight(_lastDistance);
+                if (_armsupdated)
+                {
+                    var num5 = ThirdPersonWeaponRootAuthority;
+                    if (MovementContext.StationaryWeapon != null)
+                    {
+                        num5 = 0f;
+                    }
+                    ProceduralWeaponAnimation.GetLeftStanceCurrentCurveValue(num4);
+                    PlayerBones.ShiftWeaponRoot(deltaTime, EPointOfView.ThirdPerson, num5);
+                }
+                PlayerBones.RotateHead(0f, ProceduralWeaponAnimation.GetHeadRotation(),
+                    MovementContext.LeftStanceEnabled && HasFirearmInHands(), num4,
+                    ProceduralWeaponAnimation.IsAiming);
+                HandPosers[0].weight = _leftHand;
+                _observedLimbs[0].solver.IKRotationWeight = _observedLimbs[0].solver.IKPositionWeight = _leftHand;
+                _observedLimbs[1].solver.IKRotationWeight = _observedLimbs[1].solver.IKPositionWeight = _rightHand;
+                IkProcess(_lastDistance);
+                AdjustElbows(num2);
+                IkApply(_lastDistance);
+                if (_rightHand < 1f)
+                {
+                    PlayerBones.Kinematics(_observedMarkers[1], _rightHand);
+                }
+                var num6 = GetCurveValue(PlayerAnimator.AIMING_LAYER_CURVE);
+                MovementContext.PlayerAnimator.Animator.SetLayerWeight(6, 1f - num6);
+                _prevHeight = Transform.position.y;
             }
-            PlayerBones.RotateHead(0f, ProceduralWeaponAnimation.GetHeadRotation(),
-                MovementContext.LeftStanceEnabled && HasFirearmInHands(), num4,
-                ProceduralWeaponAnimation.IsAiming);
-            HandPosers[0].weight = _leftHand;
-            _observedLimbs[0].solver.IKRotationWeight = _observedLimbs[0].solver.IKPositionWeight = _leftHand;
-            _observedLimbs[1].solver.IKRotationWeight = _observedLimbs[1].solver.IKPositionWeight = _rightHand;
-            IkProcess(_lastDistance);
-            AdjustElbows(num2);
-            IkApply(_lastDistance);
-            if (_rightHand < 1f)
-            {
-                PlayerBones.Kinematics(_observedMarkers[1], _rightHand);
-            }
-            var num6 = GetCurveValue(PlayerAnimator.AIMING_LAYER_CURVE);
-            MovementContext.PlayerAnimator.Animator.SetLayerWeight(6, 1f - num6);
-            _prevHeight = Transform.position.y;
         }
         else
         {
@@ -2021,7 +2053,10 @@ public sealed class ObservedPlayer : FikaPlayer
         }
         if (_armsupdated)
         {
-            ProceduralWeaponAnimation.LateTransformations(deltaTime);
+            if (!hideoutUnarmed)
+            {
+                ProceduralWeaponAnimation.LateTransformations(deltaTime);
+            }
             if (HandsController != null)
             {
                 HandsController.ManualLateUpdate(deltaTime);
@@ -2105,6 +2140,7 @@ public sealed class ObservedPlayer : FikaPlayer
         {
             case EProceedType.EmptyHands:
                 CreateEmptyHandsController();
+                HandsController?.FastForwardCurrentState();
                 return;
             case EProceedType.Weapon:
             case EProceedType.Stationary:

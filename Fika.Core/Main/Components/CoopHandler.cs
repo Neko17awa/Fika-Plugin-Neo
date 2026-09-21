@@ -527,6 +527,21 @@ public class CoopHandler : MonoBehaviour
         var controllerType = spawnObject.ControllerType;
         var itemId = spawnObject.ItemId;
         var isStationary = spawnObject.IsStationary;
+        if (FikaBackendUtils.IsHideoutSession)
+        {
+            if (controllerType == EHandsControllerType.Firearm && itemId != default)
+            {
+                otherPlayer.SpawnHandsController(controllerType, itemId, isStationary);
+                HideoutItemSync.ApplyObservedPatrol(otherPlayer, false);
+            }
+            else
+            {
+                HideoutItemSync.ForceObservedUnarmed(otherPlayer);
+            }
+
+            return otherPlayer;
+        }
+
         if (controllerType != EHandsControllerType.None)
         {
             if (controllerType != EHandsControllerType.Empty && itemId == default)
