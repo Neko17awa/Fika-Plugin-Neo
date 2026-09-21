@@ -24,8 +24,9 @@ public class HideoutController_SetLightLevel_Patch : ModulePatch
     }
 
     [PatchPostfix]
-    public static void Postfix()
+    public static void Postfix(HideoutController __instance)
     {
+        HideoutWorldSync.BindController(__instance);
         HideoutWorldSync.MarkDirty();
     }
 }
@@ -141,6 +142,40 @@ public class HideoutController_UpdateCameraFlashlight_Patch : ModulePatch
     }
 }
 
+/// <summary>
+/// 藏身处场景 Awake 时记下 HideoutController，采集灯光不再扫全图。
+/// </summary>
+public class HideoutController_Awake_Bind_Patch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return typeof(HideoutController).GetMethod(nameof(HideoutController.Awake));
+    }
+
+    [PatchPostfix]
+    public static void Postfix(HideoutController __instance)
+    {
+        HideoutWorldSync.BindController(__instance);
+    }
+}
+
+/// <summary>
+/// 燃油耗尽走 EnergyGenerationChanged，不会经过 SetSwitchedStatus。
+/// </summary>
+public class HideoutRepresentation_EnergyGenerationChanged_Patch : ModulePatch
+{
+    protected override MethodBase GetTargetMethod()
+    {
+        return typeof(HideoutRepresentation).GetMethod(nameof(HideoutRepresentation.EnergyGenerationChanged));
+    }
+
+    [PatchPostfix]
+    public static void Postfix()
+    {
+        HideoutWorldSync.MarkDirty();
+    }
+}
+
 public class HideoutController_EnergySupplyChanged_Patch : ModulePatch
 {
     protected override MethodBase GetTargetMethod()
@@ -151,6 +186,7 @@ public class HideoutController_EnergySupplyChanged_Patch : ModulePatch
     [PatchPrefix]
     public static bool Prefix(HideoutController __instance)
     {
+        HideoutWorldSync.BindController(__instance);
         return Traverse.Create(__instance).Field("_ambianceController").GetValue<AmbianceController>() != null;
     }
 }

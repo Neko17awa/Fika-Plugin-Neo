@@ -215,7 +215,7 @@ public static class FikaHideoutCoop
             return;
         }
 
-        HideoutWorldSync.Tick();
+        HideoutWorldSync.Pump();
         if (Time.unscaledTime >= _nextHostHeartbeat)
         {
             RegisterHost();
