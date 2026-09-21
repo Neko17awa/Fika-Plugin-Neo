@@ -367,6 +367,7 @@ public static class FikaHideoutCoop
         _nextHostHeartbeat = -999f;
         HideoutWorldSync.Reset();
         HideoutItemSync.Reset();
+        HideoutCoopBuild.Reset();
         _logger.LogInfo("Hideout coop stopped");
     }
 

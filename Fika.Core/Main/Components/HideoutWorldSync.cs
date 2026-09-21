@@ -263,12 +263,13 @@ public static class HideoutWorldSync
                     continue;
                 }
 
-                if (data.CurrentLevel != snap.Level)
+                var busy = data.CurrentStage != null && (data.CurrentStage.ActionGoing || data.CurrentStage.Waiting);
+                if (!busy && data.CurrentLevel != snap.Level)
                 {
                     data.SetCurrentLevelDumb(snap.Level, silent: true);
                 }
 
-                if (data.Status != snap.Status)
+                if (!busy && data.Status != snap.Status)
                 {
                     data.Status = snap.Status;
                 }
