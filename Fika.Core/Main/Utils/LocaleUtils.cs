@@ -164,6 +164,11 @@ public static class LocaleUtils
     public const string UI_REVIVING_GIVING_UP = "F_UI_GivingUp";
     public const string UI_REVIVING_BEEN_DOWNED = "F_UI_BeenDowned";
     public const string UI_REVIVING_BEEN_REVIVED = "F_UI_BeenRevived";
+    public const string UI_HIDEOUT_VISIT_TITLE = "F_UI_HideoutVisitTitle";
+    public const string UI_HIDEOUT_VISIT_ACTION = "F_UI_HideoutVisitAction";
+    public const string UI_HIDEOUT_VISIT_REQUIREMENTS = "F_UI_HideoutVisitRequirements";
+    public const string UI_HIDEOUT_VISIT_TOOLTIP = "F_UI_HideoutVisitTooltip";
+    public const string UI_HIDEOUT_VISIT_HOST = "F_UI_HideoutVisitHost";
 
     // Main Menu UI
     public const string UI_MMUI_ONLINE_PLAYERS = "F_MMUI_OnlinePlayers";
