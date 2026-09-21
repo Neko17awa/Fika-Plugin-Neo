@@ -953,4 +953,14 @@ public sealed partial class FikaServer
 
         HideoutItemSync.Apply(packet);
     }
+
+    private void OnHideoutCoopBuildPacketReceived(HideoutCoopBuildPacket packet, NetPeer peer)
+    {
+        if (!FikaBackendUtils.IsHideoutSession)
+        {
+            return;
+        }
+
+        HideoutCoopBuild.OnReceived(packet, peer);
+    }
 }

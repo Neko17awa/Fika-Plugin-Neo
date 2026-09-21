@@ -1000,4 +1000,14 @@ public sealed partial class FikaClient
 
         HideoutItemSync.Apply(packet);
     }
+
+    private void OnHideoutCoopBuildPacketReceived(HideoutCoopBuildPacket packet)
+    {
+        if (!FikaBackendUtils.IsHideoutSession)
+        {
+            return;
+        }
+
+        HideoutCoopBuild.OnReceived(packet);
+    }
 }

@@ -289,6 +289,7 @@ public sealed partial class FikaClient : MonoBehaviour, INetEventListener, IFika
         RegisterPacket<SpawnItemInInventoryPacket>(SpawnItemInInventoryPacketReceived);
         RegisterPacket<HideoutWorldStatePacket>(OnHideoutWorldStatePacketReceived);
         RegisterPacket<HideoutItemPacket>(OnHideoutItemPacketReceived);
+        RegisterPacket<HideoutCoopBuildPacket>(OnHideoutCoopBuildPacketReceived);
 
         RegisterReusable<WorldPacket>(OnWorldPacketReceived);
 

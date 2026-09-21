@@ -464,6 +464,7 @@ public sealed partial class FikaServer : MonoBehaviour, INetEventListener, INatP
         RegisterPacket<QuestSyncPacket, NetPeer>(OnQuestSyncPacketReceived);
         RegisterPacket<SpawnItemInInventoryPacket, NetPeer>(SpawnItemInInventoryPacketReceived);
         RegisterPacket<HideoutItemPacket, NetPeer>(OnHideoutItemPacketReceived);
+        RegisterPacket<HideoutCoopBuildPacket, NetPeer>(OnHideoutCoopBuildPacketReceived);
 
         RegisterReusable<WorldPacket, NetPeer>(OnWorldPacketReceived);
 
