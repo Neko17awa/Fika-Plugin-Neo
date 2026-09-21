@@ -39,6 +39,11 @@ public static class FikaHideoutCoop
     /// </summary>
     public static bool IsVisitGuest => _visitLocked || _isGuest;
 
+    /// <summary>
+    /// 参观中主人的显示名（昵称），给建造 UI 打拥有者标识。
+    /// </summary>
+    public static string VisitOwnerName => _ownerDisplayName ?? "";
+
     public static bool TryGetHostPublish(out FikaHideoutHostRequest request)
     {
         request = _lastHostRequest;
@@ -62,6 +67,7 @@ public static class FikaHideoutCoop
     private static bool _visitLocked;
     private static bool _ownConfirmed;
     private static string _lockedOwnerId = "";
+    private static string _ownerDisplayName = "";
     private static FikaHideoutHostRequest _lastHostRequest;
     private static float _nextHostCharacterSend = -999f;
 
@@ -88,13 +94,19 @@ public static class FikaHideoutCoop
             _lockedOwnerId = FirstNonEmpty(
                 FikaBackendUtils.HideoutVisitInProgressId,
                 hideoutData.OwnerAccountId);
-            _logger.LogInfo($"Hideout selected as guest owner={_lockedOwnerId}");
+            if (!string.IsNullOrEmpty(hideoutData.OwnerName))
+            {
+                _ownerDisplayName = hideoutData.OwnerName;
+            }
+
+            _logger.LogInfo($"Hideout selected as guest owner={_lockedOwnerId} name={_ownerDisplayName}");
             return;
         }
 
         _visitLocked = false;
         _ownConfirmed = true;
         _lockedOwnerId = "";
+        _ownerDisplayName = "";
         FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
         _logger.LogInfo("Hideout selected as owner");
     }
@@ -128,6 +140,7 @@ public static class FikaHideoutCoop
         _ownConfirmed = true;
         _visitLocked = false;
         _lockedOwnerId = "";
+        _ownerDisplayName = "";
         FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
         _logger.LogInfo("SetGuest(false) own hideout confirmed");
     }
@@ -137,6 +150,7 @@ public static class FikaHideoutCoop
         _visitLocked = false;
         _ownConfirmed = false;
         _lockedOwnerId = "";
+        _ownerDisplayName = "";
         FikaBackendUtils.HideoutVisitInProgressId = string.Empty;
         Stop();
     }
